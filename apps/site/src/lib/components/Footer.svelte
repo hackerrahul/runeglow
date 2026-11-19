@@ -8,6 +8,9 @@
 		<div class="about">
 			<a class="brand" href="/"><Logo size={18} /><span>{SITE.name}</span></a>
 			<p>UI effects for Svelte, in one package.</p>
+			<p class="made">
+				Made by <a href={SITE.author.x} rel="noreferrer">{SITE.author.name}</a>.
+			</p>
 			<p class="credit">
 				A Svelte 5 port of
 				<a href={SITE.upstream.url} rel="noreferrer">{SITE.upstream.name}</a>, created by
@@ -67,8 +70,20 @@
 		margin-top: 8px;
 		color: var(--fg-2);
 	}
-	.about .credit {
+	.about .made {
 		margin-top: 20px;
+		font-size: 13.5px;
+		color: var(--fg);
+	}
+	.made a {
+		font-weight: 550;
+		color: #fff;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		text-decoration-color: rgba(255, 255, 255, 0.3);
+	}
+	.about .credit {
+		margin-top: 6px;
 		max-width: 40ch;
 		font-size: 12.5px;
 		color: var(--fg-3);

@@ -1,6 +1,6 @@
 # Runeglow
 
-Nine animated UI effects for Svelte 5, in one package.
+Nine animated UI effects for Svelte 5, in one package. Made by [Rahul Gangotri](https://x.com/rahul__gangotri).
 
 **[runeglow.websetgo.workers.dev](https://runeglow.websetgo.workers.dev)** · [npm](https://www.npmjs.com/package/runeglow)
 
@@ -55,8 +55,6 @@ Runeglow is a Svelte 5 port of [Libraries.dev](https://libraries.dev) by Jakub A
 the Svelte components around them and this site are new. Liquid metal's shader is from
 [Paper Shaders](https://github.com/paper-design/shaders), under the Apache License 2.0. See
 `NOTICE`.
-
-Made by [Rahul Gangotri](https://x.com/rahul__gangotri).
 
 ## License
 
