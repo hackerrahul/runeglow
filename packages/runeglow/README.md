@@ -27,7 +27,7 @@ If you would rather own the code than depend on the package, each library is als
 `src/lib/runeglow/` in your project:
 
 ```bash
-npx shadcn-svelte@latest add https://runeglow.websetgo.workers.dev/r/border-beam.json
+npx shadcn-svelte@latest add https://runeglow.dev/r/border-beam.json
 ```
 
 The names are the import paths below (`thinking-orbs`, `voice-ring`, …). A library that leans on

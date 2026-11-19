@@ -6,7 +6,7 @@ export const SITE = {
 	version: pkg.version,
 	tagline: 'UI effects for Svelte',
 	/** Where the site, and the registry under /r, are served. */
-	url: 'https://runeglow.websetgo.workers.dev',
+	url: 'https://runeglow.dev',
 	repo: 'https://github.com/hackerrahul/runeglow' as string | null,
 	npm: 'https://www.npmjs.com/package/runeglow',
 	author: {

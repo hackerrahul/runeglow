@@ -11,6 +11,6 @@ What helps instead:
   name, your browser, and the smallest example that shows it.
 - **Have an idea?** Open an issue and describe what you want to build with it.
 - **Need a change right now?** Copy the library's source into your project and edit it there. The
-  [installation guide](https://runeglow.websetgo.workers.dev/install#copy) shows how.
+  [installation guide](https://runeglow.dev/install#copy) shows how.
 
 Runeglow is MIT licensed, so you are free to fork it.

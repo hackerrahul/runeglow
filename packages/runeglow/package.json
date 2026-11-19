@@ -103,7 +103,7 @@
 	},
 	"description": "High-craft UI effects for Svelte 5: border beams, thinking orbs, bot avatars, gooey shapes, voice glows, liquid metal, image reveals and distortion waves.",
 	"license": "MIT",
-	"homepage": "https://runeglow.websetgo.workers.dev",
+	"homepage": "https://runeglow.dev",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/hackerrahul/runeglow.git",

@@ -67,7 +67,7 @@ const items = Object.entries(INFO).map(([name, [title, description]]) => {
 const registry = {
   $schema: 'https://shadcn-svelte.com/schema/registry.json',
   name: 'runeglow',
-  homepage: 'https://runeglow.websetgo.workers.dev',
+  homepage: 'https://runeglow.dev',
   items
 };
 writeFileSync(join(site, 'registry.json'), JSON.stringify(registry, null, '\t') + '\n');
