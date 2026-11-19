@@ -1,0 +1,119 @@
+{
+	"name": "runeglow",
+	"version": "0.1.0",
+	"keywords": [
+		"svelte",
+		"svelte5",
+		"runes",
+		"animation",
+		"effects",
+		"webgl",
+		"border-beam",
+		"glow",
+		"ai",
+		"ui"
+	],
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.spec.*",
+		"NOTICE",
+		"LICENSES"
+	],
+	"type": "module",
+	"sideEffects": false,
+	"exports": {
+		"./border-beam": {
+			"types": "./dist/border-beam/index.d.ts",
+			"svelte": "./dist/border-beam/index.js",
+			"default": "./dist/border-beam/index.js"
+		},
+		"./thinking-orbs": {
+			"types": "./dist/thinking-orbs/index.d.ts",
+			"svelte": "./dist/thinking-orbs/index.js",
+			"default": "./dist/thinking-orbs/index.js"
+		},
+		"./bot-avatars": {
+			"types": "./dist/bot-avatars/index.d.ts",
+			"svelte": "./dist/bot-avatars/index.js",
+			"default": "./dist/bot-avatars/index.js"
+		},
+		"./liquid-gooey": {
+			"types": "./dist/liquid-gooey/index.d.ts",
+			"svelte": "./dist/liquid-gooey/index.js",
+			"default": "./dist/liquid-gooey/index.js"
+		},
+		"./voice-glow": {
+			"types": "./dist/voice-glow/index.d.ts",
+			"svelte": "./dist/voice-glow/index.js",
+			"default": "./dist/voice-glow/index.js"
+		},
+		"./voice-ring": {
+			"types": "./dist/voice-ring/index.d.ts",
+			"svelte": "./dist/voice-ring/index.js",
+			"default": "./dist/voice-ring/index.js"
+		},
+		"./metal-fx": {
+			"types": "./dist/metal-fx/index.d.ts",
+			"svelte": "./dist/metal-fx/index.js",
+			"default": "./dist/metal-fx/index.js"
+		},
+		"./img-fx": {
+			"types": "./dist/img-fx/index.d.ts",
+			"svelte": "./dist/img-fx/index.js",
+			"default": "./dist/img-fx/index.js"
+		},
+		"./distortion-waves": {
+			"types": "./dist/distortion-waves/index.d.ts",
+			"svelte": "./dist/distortion-waves/index.js",
+			"default": "./dist/distortion-waves/index.js"
+		},
+		"./thinking-orbs/engine": {
+			"types": "./dist/thinking-orbs/engine/index.d.ts",
+			"default": "./dist/thinking-orbs/engine/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build && pnpm run prepack",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"prepack": "svelte-kit sync && svelte-package && publint",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+	},
+	"devDependencies": {
+		"@paper-design/shaders": "0.0.80",
+		"@sveltejs/adapter-auto": "^8.0.1",
+		"@sveltejs/kit": "^3.2.0",
+		"@sveltejs/package": "^3.0.2",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"@types/three": "^0.187.0",
+		"publint": "^0.3.25",
+		"svelte": "^5.57.3",
+		"svelte-check": "^4.7.8",
+		"three": "^0.187.0",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.8"
+	},
+	"peerDependencies": {
+		"svelte": "^5.0.0",
+		"three": ">=0.149.0"
+	},
+	"description": "High-craft UI effects for Svelte 5: border beams, thinking orbs, bot avatars, gooey shapes, voice glows, liquid metal, image reveals and distortion waves.",
+	"license": "MIT",
+	"homepage": "https://runeglow.websetgo.workers.dev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/hackerrahul/runeglow.git",
+		"directory": "packages/runeglow"
+	},
+	"bugs": "https://github.com/hackerrahul/runeglow/issues",
+	"author": "Rahul Gangotri",
+	"peerDependenciesMeta": {
+		"three": {
+			"optional": true
+		}
+	}
+}

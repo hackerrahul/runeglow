@@ -1,0 +1,14 @@
+export { default as VoiceOrb } from './VoiceOrb.svelte';
+export { default as VoiceRing } from './VoiceRing.svelte';
+export { default } from './VoiceRing.svelte';
+export { useMicrophone } from './useMicrophone.svelte';
+export type { MicrophoneState, UseMicrophoneOptions, UseMicrophoneResult } from './useMicrophone.svelte';
+export { acquireAnalyser, getAudioContext, isAudioSupported } from './audio';
+export type { AnalyserLease } from './audio';
+export { VoiceFollower, SPECTRUM_N } from './voice';
+export { ACCENT_COLORS, EMOTION_COLORS, type VoiceOrbAccent, type VoiceOrbEmotion } from './emotion';
+export { PRESETS, resolvePreset } from './presets';
+export { VOICE_ORB_TYPES, type VoiceOrbType } from './engine/registry';
+export type { OrbTheme, VoiceOrbProps, VoiceOrbState, VoiceRingProps, VoiceRingType } from './types';
+export type { VoiceInput, TypeFrame, TypeOpts } from './engine/types';
+export type { OrbTint } from './engine/paint';

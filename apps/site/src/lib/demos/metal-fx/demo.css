@@ -1,0 +1,128 @@
+/* The elements the Liquid metal demos wrap: a send button, an upgrade pill,
+   and the neighbours that catch the reflection. Plain classes, shared by the
+   page, the playground and the home card. */
+
+.mfx-row {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: 14px;
+	max-width: 100%;
+}
+
+.mfx-send {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: inherit;
+	cursor: default;
+}
+
+.mfx-pill {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 40px;
+	padding: 0 22px;
+	border: 0;
+	border-radius: 20px;
+	background: transparent;
+	font: 500 14px/1 inherit;
+	font-family: inherit;
+	color: inherit;
+	white-space: nowrap;
+	cursor: default;
+}
+
+.mfx-search {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	width: 190px;
+	max-width: 100%;
+	height: 40px;
+	padding: 0 14px;
+	border-radius: 20px;
+	background: rgba(255, 255, 255, 0.04);
+	box-shadow:
+		inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+		inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+	color: #8e8e8e;
+}
+.mfx-search input {
+	flex: 1;
+	min-width: 0;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	font: inherit;
+	font-size: 14px;
+	color: #e3e3e3;
+}
+.mfx-search input::placeholder {
+	color: #6a6a6a;
+}
+.mfx-search input::-webkit-search-cancel-button {
+	display: none;
+}
+.mfx-search[data-tone='light'] {
+	background: #fff;
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+	color: #7a7a7a;
+}
+.mfx-search[data-tone='light'] input {
+	color: #1d1d1d;
+}
+
+.mfx-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: 36px;
+	padding: 0 10px 0 14px;
+	border-radius: 50px;
+	background: rgba(255, 255, 255, 0.04);
+	box-shadow:
+		inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+		inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+	font-size: 12px;
+	line-height: 14px;
+	color: #caccd2;
+	white-space: nowrap;
+}
+.mfx-chip svg {
+	color: #8e8e8e;
+}
+
+.mfx-line {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.mfx-line.plan {
+	align-items: baseline;
+	gap: 6px;
+}
+.mfx-plan {
+	color: rgba(153, 153, 153, 0.6);
+	white-space: nowrap;
+}
+.mfx-plan[data-tone='light'] {
+	color: rgba(60, 60, 60, 0.55);
+}
+.mfx-live {
+	font-size: 20px;
+	line-height: 1.2;
+	color: #999;
+	white-space: nowrap;
+}
+.mfx-live[data-tone='light'] {
+	color: #6a6a6a;
+}

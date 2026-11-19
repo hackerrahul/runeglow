@@ -1,0 +1,296 @@
+/* Styles for the Gooey demos. The classes land on elements the library
+   renders (the group's own div, each item's wrapper), which a component's
+   scoped styles cannot reach, so they live in a plain stylesheet. */
+
+/* ── Morph: a plus button that opens into three ───────────────── */
+.gd-pm {
+	position: relative;
+	width: 200px;
+	height: 140px;
+}
+.gd-pm-slot {
+	position: absolute;
+	left: 80px;
+	top: 80px;
+}
+.gd-pm-btn {
+	width: 40px;
+	height: 40px;
+	border: 0;
+	padding: 0;
+	border-radius: 50%;
+	background: transparent;
+	display: grid;
+	place-items: center;
+	cursor: pointer;
+	color: var(--gd-ink, #fbfbfb);
+	-webkit-tap-highlight-color: transparent;
+}
+.gd-pm-sat {
+	pointer-events: none;
+}
+.gd-pm-open .gd-pm-sat {
+	pointer-events: auto;
+}
+.gd-pm-open .gd-pm-sat:hover {
+	background: rgba(127, 127, 127, 0.16);
+}
+/* Icons hold back while the blob is merged, then appear as the satellite
+   pulls clear. */
+.gd-pm-icon {
+	display: grid;
+	place-items: center;
+	opacity: 0;
+	filter: blur(2px);
+	transition:
+		opacity 120ms ease,
+		filter 120ms ease;
+}
+.gd-pm-open .gd-pm-icon {
+	opacity: 1;
+	filter: blur(0);
+	transition-duration: var(--gd-icon-dur, 180ms);
+}
+/* Close anticipation: the whole liquid layer, and the main button riding
+   it, dips toward the returning satellites, then settles. Longhands on
+   purpose: WebKit mis-parses var() inside the `animation` shorthand. */
+@keyframes gd-anticipate {
+	0% {
+		transform: translateY(0);
+	}
+	30% {
+		transform: translateY(var(--gd-anticip, 5px));
+	}
+	100% {
+		transform: translateY(0);
+	}
+}
+.gd-pm-anticipating [data-gooey-svg],
+.gd-pm-anticipating .gd-pm-main {
+	animation-name: gd-anticipate;
+	animation-duration: var(--gd-anticip-dur, 700ms);
+	animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+	animation-fill-mode: both;
+}
+.gd-pm-plus {
+	display: grid;
+	place-items: center;
+	transition: transform 250ms ease-in-out;
+}
+.gd-pm-open .gd-pm-plus {
+	transform: rotate(45deg);
+}
+
+/* ── Shape: a pill that opens into a card ─────────────────────── */
+.gd-sh {
+	position: relative;
+	display: grid;
+	place-items: center;
+	width: min(100%, 320px);
+	height: 210px;
+}
+.gd-sh-body {
+	display: grid;
+	align-content: center;
+	width: 132px;
+	height: 40px;
+	padding: 0 16px;
+	border: 0;
+	border-radius: 20px;
+	background: transparent;
+	color: var(--gd-ink, #fbfbfb);
+	font: inherit;
+	font-size: 13px;
+	font-weight: 500;
+	text-align: left;
+	cursor: pointer;
+	overflow: hidden;
+}
+.gd-sh-body.open {
+	width: 250px;
+	height: 138px;
+	padding: 16px 18px;
+	border-radius: 24px;
+	align-content: start;
+	gap: 6px;
+}
+.gd-sh-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	white-space: nowrap;
+}
+.gd-sh-body small {
+	font-size: 12.5px;
+	font-weight: 400;
+	opacity: 0.6;
+	line-height: 1.45;
+	white-space: normal;
+}
+.gd-sh-chev {
+	transition: transform 200ms ease;
+}
+.gd-sh-body.open .gd-sh-chev {
+	transform: rotate(180deg);
+}
+
+/* ── Dissolve: two photo cards that melt where they touch ─────── */
+.gd-dc {
+	position: relative;
+	width: min(100%, 320px);
+	height: 210px;
+}
+.gd-dc-card {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 96px;
+	height: 96px;
+	margin: -48px 0 0 -48px;
+	border-radius: 24px;
+	overflow: hidden;
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+	-webkit-user-select: none;
+}
+.gd-dc-card:active {
+	cursor: grabbing;
+}
+.gd-dc-card img,
+.gd-mp-card img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	pointer-events: none;
+}
+
+/* ── Move: a slider with a liquid thumb ───────────────────────── */
+.gd-sl {
+	position: relative;
+	width: 240px;
+	height: 80px;
+}
+.gd-sl-track {
+	position: absolute;
+	left: 14px;
+	right: 14px;
+	top: 38px;
+	height: 8px;
+	border-radius: 4px;
+	background: rgba(127, 127, 127, 0.22);
+	/* Below the goo layer (its svg sits at z -1): the thumb and its tail
+	   paint over the track rather than being sliced by it. */
+	z-index: -2;
+}
+/* The thumb itself stays unstyled: its surface and shadow are the liquid. */
+.gd-sl-thumb {
+	position: absolute;
+	left: 14px;
+	top: 30px;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+	-webkit-user-select: none;
+}
+.gd-sl-thumb:active {
+	cursor: grabbing;
+}
+
+/* ── Bend: a pill you drag, which bows as it moves ────────────── */
+.gd-bd {
+	position: relative;
+	width: 100%;
+	max-width: 520px;
+	height: 210px;
+}
+.gd-bd-card {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 250px;
+	height: 46px;
+	margin: -23px 0 0 -125px;
+	border-radius: 54px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 16px 0 8px;
+	color: var(--gd-ink, #fbfbfb);
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+	-webkit-user-select: none;
+}
+.gd-bd-card:active {
+	cursor: grabbing;
+}
+.gd-bd-chip {
+	flex: none;
+	width: 32px;
+	height: 32px;
+	border-radius: 40px;
+	background: rgba(127, 127, 127, 0.14);
+	display: grid;
+	place-items: center;
+}
+.gd-bd-title {
+	font-size: 13px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+.gd-bd-count {
+	font-size: 13px;
+	opacity: 0.5;
+	white-space: nowrap;
+}
+/* The content deforms with the liquid: each piece rides the arc, turns
+   onto its tangent and shears with the caps, driven by the --lg-bend
+   variables the engine publishes and scaled by --gd-cb. */
+.gd-bd-card > * {
+	--gd-k: calc(var(--gd-cb, 0) * var(--gd-arc, 1));
+	transform: translate(calc(var(--lg-bend-x, 0px) * var(--gd-k) * 2.4), calc(var(--lg-bend-y, 0px) * var(--gd-k) * 2.4))
+		rotate(calc(var(--lg-bend-yn, 0) * var(--gd-rot, 0) * var(--gd-cb, 0) * 1deg))
+		skewX(calc(var(--lg-bend-xn, 0) * var(--gd-cb, 0) * -0.55deg))
+		scaleX(calc(1 - var(--lg-bend-xn, 0) * var(--gd-cb, 0) * var(--gd-sqx, 0.006)))
+		scaleY(calc(1 + var(--lg-bend-yn, 0) * var(--gd-cb, 0) * var(--gd-sqy, 0)));
+	transform-origin: center;
+}
+.gd-bd-card > :nth-child(1) {
+	--gd-arc: 0.45;
+	--gd-rot: 1.6;
+	--gd-sqx: 0.014;
+}
+.gd-bd-card > :nth-child(2) {
+	--gd-arc: 1;
+	--gd-rot: 0;
+	--gd-sqy: 0.01;
+}
+.gd-bd-card > :nth-child(3) {
+	--gd-arc: 0.6;
+	--gd-rot: -1.6;
+}
+
+/* ── Melt: two images that run into each other ────────────────── */
+.gd-mp {
+	position: relative;
+	width: min(100%, 420px);
+	height: 200px;
+}
+.gd-mp-card {
+	position: absolute;
+	border-radius: 22px;
+	overflow: hidden;
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+	-webkit-user-select: none;
+}
+.gd-mp-card:active {
+	cursor: grabbing;
+}
