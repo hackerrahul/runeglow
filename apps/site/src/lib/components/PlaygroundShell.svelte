@@ -1,7 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { codeFor, type Code } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 	import CodeBlock from './CodeBlock.svelte';
 	import CopyButton from './CopyButton.svelte';
+	import FrameworkTabs from './FrameworkTabs.svelte';
 
 	interface Props {
 		/** Names the control panel for assistive tech, e.g. "Border beam controls". */
@@ -20,8 +23,10 @@
 		/** How many controls differ from their defaults; shows "Reset all" above zero. */
 		modified?: number;
 		onreset?: () => void;
-		code: string;
-		prompt: string;
+		/** What is on the stage, as code: one text, or one per framework. */
+		code: Code;
+		/** The same as a prompt for a coding agent: one text, or one per framework. */
+		prompt: Code;
 	}
 
 	let {
@@ -40,6 +45,10 @@
 	}: Props = $props();
 
 	let tab = $state<'code' | 'prompt'>('code');
+
+	const multi = $derived(typeof code !== 'string');
+	const codeNow = $derived(codeFor(code, framework.id));
+	const promptNow = $derived(codeFor(prompt, framework.id));
 </script>
 
 <div class="pg">
@@ -63,25 +72,27 @@
 
 <div class="out">
 	<div class="out-bar">
-		<div class="tabs" role="tablist" aria-label="Output">
-			<button type="button" role="tab" aria-selected={tab === 'code'} onclick={() => (tab = 'code')}>
-				Svelte
-			</button>
-			<button type="button" role="tab" aria-selected={tab === 'prompt'} onclick={() => (tab = 'prompt')}>
-				Prompt
-			</button>
+		<div class="tabs">
+			{#if multi}
+				<!-- a framework tab shows the code in it; the prompt is written for the same one -->
+				<FrameworkTabs label="Code in" active={tab === 'code'} onpick={() => (tab = 'code')} />
+			{:else}
+				<button type="button" aria-pressed={tab === 'code'} onclick={() => (tab = 'code')}>Svelte</button>
+			{/if}
+			<span class="sep" aria-hidden="true"></span>
+			<button type="button" aria-pressed={tab === 'prompt'} onclick={() => (tab = 'prompt')}>Prompt</button>
 		</div>
 		<CopyButton
-			text={tab === 'code' ? code : prompt}
+			text={tab === 'code' ? codeNow : promptNow}
 			label={tab === 'code' ? 'Copy code' : 'Copy prompt'}
 			showLabel
 		/>
 	</div>
-	<div role="tabpanel">
+	<div>
 		{#if tab === 'code'}
-			<CodeBlock {code} />
+			<CodeBlock code={codeNow} />
 		{:else}
-			<CodeBlock code={prompt} lang="text" maxHeight={320} />
+			<CodeBlock code={promptNow} lang="text" maxHeight={320} />
 		{/if}
 	</div>
 </div>
@@ -156,6 +167,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		gap: 10px;
 		margin-bottom: 8px;
 	}
 	.tabs {
@@ -173,9 +185,19 @@
 	.tabs button:hover {
 		color: #fff;
 	}
-	.tabs button[aria-selected='true'] {
+	.tabs button[aria-pressed='true'] {
 		background: var(--chip);
 		color: #fff;
+	}
+	.tabs {
+		flex-wrap: wrap;
+		align-items: center;
+	}
+	.sep {
+		width: 1px;
+		height: 14px;
+		margin: 0 4px;
+		background: var(--line-2);
 	}
 	.out :global(.copy-slot) {
 		display: none;

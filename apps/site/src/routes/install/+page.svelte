@@ -2,17 +2,53 @@
 	import CodeBlock from '#lib/components/CodeBlock.svelte';
 	import DocsShell from '#lib/components/DocsShell.svelte';
 	import InstallTabs from '#lib/components/InstallTabs.svelte';
+	import { example, type Framework } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 	import { LIBRARIES, SITE } from '#lib/site.ts';
 
-	const use = `<script>
-  import { BorderBeam } from '${SITE.pkg}/border-beam';
-<\/script>
+	/* the package part of the page follows the framework chosen in its tabs */
+	const pkg = $derived(framework.info.pkg);
 
-<BorderBeam>
-  <div class="card">Your content here</div>
-</BorderBeam>`;
+	const use = {
+		...example({
+			component: 'BorderBeam',
+			children: {
+				svelte: '<div class="card">Your content here</div>',
+				react: '<div className="card">Your content here</div>'
+			}
+		}),
+		// with no framework the beam goes on a wrapper the page already has
+		vanilla: `import { attachBorderBeam } from 'runeglow/border-beam';
 
-	const three = `pnpm add ${SITE.pkg} three`;
+// <div id="beam"><div class="card">Your content here</div></div>
+// it is attached to the wrapper, and draws the beam round what is inside
+const beam = attachBorderBeam(document.querySelector('#beam'));`
+	};
+
+	const three = $derived(`pnpm add ${pkg} three`);
+
+	const NEED: Record<Framework, string[]> = {
+		svelte: [
+			'Svelte 5. The components are written with runes.',
+			'Any setup that builds Svelte: SvelteKit, or Vite with the Svelte plugin. The components render on the server and start animating once the page loads.'
+		],
+		react: [
+			'React 18 or newer.',
+			'Any setup that builds React. The components are client components that render their markup on the server and start animating in the browser.'
+		],
+		vue: [
+			'Vue 3.5 or newer.',
+			'Any setup that builds Vue. The components render their markup on the server and start animating in the browser.'
+		],
+		elements: [
+			'Nothing but a browser: these are custom elements, HTML tags that work in any framework or none.',
+			'A bundler, or a CDN that serves npm packages as modules. Import a library once and its tags are registered.'
+		],
+		vanilla: [
+			'Nothing but a browser: plain functions that draw into elements your page already has.',
+			'A bundler, or a CDN that serves npm packages as modules.'
+		]
+	};
 
 	const init = `npx shadcn-svelte@latest init`;
 	const add = `npx shadcn-svelte@latest add ${SITE.url}/r/border-beam.json`;
@@ -21,11 +57,11 @@
   "$schema": "https://shadcn-svelte.com/schema.json",
   "tailwind": { "css": "src/app.css", "baseColor": "slate" },
   "aliases": {
-    "components": "$lib/components",
-    "utils": "$lib/utils",
-    "ui": "$lib/components/ui",
-    "hooks": "$lib/hooks",
-    "lib": "$lib"
+    "components": "#lib/components",
+    "utils": "#lib/utils",
+    "ui": "#lib/components/ui",
+    "hooks": "#lib/hooks",
+    "lib": "#lib"
   },
   "typescript": true,
   "registry": "https://shadcn-svelte.com/registry"
@@ -33,7 +69,7 @@
 	const update = `npx shadcn-svelte@latest add ${SITE.url}/r/border-beam.json --overwrite`;
 
 	const useCopied = `<script>
-  import { BorderBeam } from '$lib/runeglow/border-beam';
+  import { BorderBeam } from '#lib/runeglow/border-beam';
 <\/script>
 
 <BorderBeam>
@@ -42,7 +78,7 @@
 
 	/* Voice ring's files import from two of the others. */
 	const NEEDS: Record<string, string> = {
-		'voice-ring': 'Also copies Voice and Thinking orbs.',
+		'voice-ring': 'Also copies Voice.',
 		'img-fx': 'Also adds three to your dependencies.'
 	};
 </script>
@@ -51,29 +87,29 @@
 	<header>
 		<h1>Installation</h1>
 		<p class="lead">
-			There are two ways to get {SITE.name} into a Svelte 5 project. Most people want the first.
+			{SITE.name} has a package for Svelte, React, Vue, custom elements and plain JavaScript. Pick
+			yours in any tab below and the commands and code on this page follow. Svelte projects can also
+			copy a library’s source in.
 		</p>
 	</header>
 
 	<div class="choose">
 		<a href="#package">
 			<span class="k">1. Install the package</span>
-			<span class="v">One dependency, updates with your package manager. Works in any Svelte 5 project.</span>
+			<span class="v">One dependency, updates with your package manager. For every framework, and for none.</span>
 		</a>
 		<a href="#copy">
 			<span class="k">2. Copy the source</span>
-			<span class="v">One library’s files, in your own project, yours to edit. For projects that use shadcn-svelte.</span>
+			<span class="v">One library’s files, in your own project, yours to edit. For Svelte projects that use shadcn-svelte.</span>
 		</a>
 	</div>
 
 	<section id="requirements">
 		<h2>What you need</h2>
 		<ul class="notes">
-			<li>Svelte 5. The components are written with runes.</li>
-			<li>
-				Any setup that builds Svelte: SvelteKit, or Vite with the Svelte plugin. The components render
-				on the server and start animating once the page loads.
-			</li>
+			{#each NEED[framework.id] as need (need)}
+				<li>{need}</li>
+			{/each}
 			<li>
 				One library, Image generation, also needs <code class="icode">three</code>. The others need
 				nothing else.
@@ -101,7 +137,7 @@
 					{#each LIBRARIES as lib (lib.slug)}
 						<tr>
 							<td><a href="/{lib.slug}">{lib.name}</a></td>
-							<td><code>{SITE.pkg}/{lib.slug}</code></td>
+							<td><code>{pkg}/{lib.slug}</code></td>
 						</tr>
 					{/each}
 				</tbody>
@@ -111,14 +147,14 @@
 		<h3>Image generation needs three</h3>
 		<p class="text">
 			Install <code class="icode">three</code> next to the package if you use
-			<code class="icode">{SITE.pkg}/img-fx</code>. If you don’t use it, skip this.
+			<code class="icode">{pkg}/img-fx</code>. If you don’t use it, skip this.
 		</p>
 		<CodeBlock code={three} copyLabel="Copy command" />
 
 		<h3>Updating</h3>
 		<p class="text">
 			Update it like any other dependency, for example
-			<code class="icode">pnpm update {SITE.pkg}</code>. Types are included, so there is nothing else
+			<code class="icode">pnpm update {pkg}</code>. Types are included, so there is nothing else
 			to install for TypeScript.
 		</p>
 	</section>
@@ -126,9 +162,11 @@
 	<section id="copy">
 		<h2>2. Copy the source</h2>
 		<p class="text">
-			Each library is also published as a <a href="https://shadcn-svelte.com" rel="noreferrer">shadcn-svelte</a>
-			registry item. Instead of depending on the package, the shadcn-svelte CLI copies that one library’s
-			source files into your project, where you can read and change them.
+			This way is for Svelte. Each library is also published as a
+			<a href="https://shadcn-svelte.com" rel="noreferrer">shadcn-svelte</a> registry item. Instead of
+			depending on <code class="icode">{SITE.pkg}</code>, the shadcn-svelte CLI copies that one
+			library’s Svelte components into your project, where you can read and change them, and adds
+			<code class="icode">runeglow</code>, the framework-free core they drive, to your dependencies.
 		</p>
 
 		<h3>Before you start</h3>

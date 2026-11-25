@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { LIBRARIES } from '#lib/site.ts';
+	import FrameworkSelect from './FrameworkSelect.svelte';
 	import LibIcon from './LibIcon.svelte';
 
 	let { children }: { children: Snippet } = $props();
@@ -9,6 +10,7 @@
 
 <div class="wrap shell">
 	<nav class="side" aria-label="Documentation">
+		<FrameworkSelect />
 		<p class="label">Guide</p>
 		<ul class="guide">
 			<li>

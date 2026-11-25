@@ -1,12 +1,14 @@
 <script lang="ts">
-	import { DistortionWave, defaultStyle, duration, type PaletteName, type WaveType } from 'runeglow/distortion-waves';
+	import { DistortionWave, defaultStyle, duration, type PaletteName, type WaveType } from '@runeglow/svelte/distortion-waves';
 	import PanelGroup from '#lib/components/PanelGroup.svelte';
 	import PlaygroundShell from '#lib/components/PlaygroundShell.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import Slider from '#lib/components/Slider.svelte';
 	import SwatchRow from '#lib/components/SwatchRow.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
+	import { perFramework, type Props } from '#lib/code.ts';
 	import { SITE } from '#lib/site.ts';
+	import { functionsLine, playgroundCode, promptImport, runStep, sourceWord, viewsStep } from './code.ts';
 	import { CURVES, CURVE_OPTIONS, KNOB_GROUPS, type CurveKey, type Knob, type KnobKey } from './knobs.ts';
 	import Scene, { type SceneKind } from './Scene.svelte';
 
@@ -58,7 +60,7 @@
 		{ value: 'always', label: 'Always fade' }
 	];
 
-	const num = (v: number) => String(+v.toFixed(3));
+	const num = (v: number) => +v.toFixed(3);
 	const UNIT: Record<Knob['unit'], (v: number) => string> = {
 		s: (v) => `${num(v)}s`,
 		pt: (v) => `${num(v)}pt`,
@@ -116,7 +118,7 @@
 	);
 	const total = $derived(duration({ ...base, ...moved }));
 
-	/* What the stage passes to the wave, and what the snippet prints. */
+	/* What the stage passes to the wave. */
 	const wave = $derived({
 		palette,
 		waveStyle,
@@ -153,76 +155,56 @@
 		s.type = next;
 	}
 
-	const VIEWS: Record<WaveType, [string, string, string]> = {
-		vertical: ['<Review />', '<Receipt />', 'Confirm'],
-		center: ['<Credits />', '<Credits added />', 'Buy'],
-		horizontal: ['<Toast />', '<Toast done />', 'Send']
-	};
-	const snippet = $derived.by(() => {
-		const p = ['revealed={done}'];
-		if (s.type !== 'vertical') p.push(`type="${s.type}"`);
-		if (palette) p.push(`palette="${palette}"`);
-		if (source) p.push(`source={{ x: ${source.x}, y: ${source.y}, w: ${source.w}, h: ${source.h} }}`);
-		if (waveStyle) p.push(`waveStyle={{ ${Object.entries(waveStyle).map(([k, v]) => `${k}: ${num(v)}`).join(', ')} }}`);
-		if (s.scale != null) p.push(`scale={${num(s.scale)}}`);
-		if (s.radius != null) p.push(`cornerRadius={${s.radius}}`);
-		if (s.scrubbing) p.push(`scrub={${num(s.scrub)}}`);
-		if (!s.lens) p.push('capture={false}');
-		if (s.live !== 'on') p.push(s.live === 'animations' ? 'live="animations"' : 'live={false}');
-		if (!s.prewarm) p.push('prewarm={false}');
-		if (s.resolution != null) p.push(`resolution={${num(s.resolution)}}`);
-		if (s.motion !== 'system') p.push(`reducedMotion="${s.motion}"`);
-		p.push('style="width: 300px; border-radius: 28px; overflow: hidden;"');
-		const [first, second, label] = VIEWS[s.type];
-		return [
-			'<script>',
-			`  import { DistortionWave } from '${SITE.pkg}/distortion-waves';`,
-			'',
-			'  let done = $state(false);',
-			'<\/script>',
-			'',
-			`<DistortionWave\n  ${p.join('\n  ')}\n>`,
-			`  ${first}`,
-			'',
-			'  {#snippet revealedContent()}',
-			`    ${second}`,
-			'  {/snippet}',
-			'',
-			'  {#snippet overlay()}',
-			`    <button onclick={() => (done = !done)}>${label}</button>`,
-			'  {/snippet}',
-			'</DistortionWave>'
-		].join('\n');
+	/* The wave's options as the snippet prints them: what differs from the
+	   defaults, and nothing else. */
+	const printed = $derived.by(() => {
+		const p: Props = {};
+		if (s.type !== 'vertical') p.type = s.type;
+		if (palette) p.palette = palette;
+		if (source) p.source = source;
+		if (waveStyle) p.waveStyle = Object.fromEntries(Object.entries(waveStyle).map(([k, v]) => [k, num(v)]));
+		if (s.scale != null) p.scale = num(s.scale);
+		if (s.radius != null) p.cornerRadius = s.radius;
+		if (s.scrubbing) p.scrub = num(s.scrub);
+		if (!s.lens) p.capture = false;
+		if (s.live !== 'on') p.live = s.live === 'animations' ? 'animations' : false;
+		if (!s.prewarm) p.prewarm = false;
+		if (s.resolution != null) p.resolution = num(s.resolution);
+		if (s.motion !== 'system') p.reducedMotion = s.motion;
+		return p;
 	});
+	const snippet = $derived(playgroundCode(s.type, printed));
 
-	const prompt = $derived(`Add a Distortion wave from ${SITE.name} to this Svelte 5 app: a coloured wave that leaves a
+	const prompt = $derived(
+		perFramework(
+			(fw, info) => `Add a Distortion wave from ${SITE.name} to this ${info.app}: a coloured wave that leaves a
 button and carries one view into another, bending the page as it passes.
 
-1. Install the package with the project's package manager, for example: pnpm add ${SITE.pkg}
-2. Import it: import { DistortionWave } from '${SITE.pkg}/distortion-waves'
-3. Put the first view in its children and the second in the revealedContent snippet. Give
-   both an opaque background. Put the button that starts it in the overlay snippet, which
-   stays live above the wave.
-4. Changing revealed runs the wave: true forwards, false back into its source.
+1. Install the package with the project's package manager, for example: pnpm add ${info.pkg}
+2. ${promptImport(fw)}
+3. ${viewsStep[fw]}
+4. ${runStep[fw]}
 5. Start from this configuration:
 
-${snippet}
+${snippet[fw]}
 
 Parameter vocabulary, for later changes:
 - type: vertical, horizontal or center. palette: colorful, green, ocean, sunset, mono, a
   #RRGGBB colour, or a Palette object.
-- source: an element or { x, y, w, h } in the element's CSS px. Default: the control last
+- source: ${sourceWord[fw]}. Default: the control last
   pressed inside it.
 - waveStyle: any of the wave's numbers (travel, anticipation, amplitude, blur, aberration,
   strength, rimStrength, particleCount and so on). Lengths are in points and grow with scale.
 - scale ("auto" or CSS px per point), cornerRadius, scrub (0 to 1, holds the wave there),
   capture (false draws the colour alone), live, prewarm, resolution, reducedMotion.
-- The component's functions (bind:this): play({ source, focus }), reverse(), reset(), prepare().
+${functionsLine[fw]}
 
 Notes:
 - The wave bends a picture of the views, so what animates inside a view stands still
   while it passes. Anything that must stay live goes in the overlay.
-- It needs WebGL 2. Without it, or under reduced motion, it crossfades.`);
+- It needs WebGL 2. Without it, or under reduced motion, it crossfades.`
+		)
+	);
 </script>
 
 {#snippet knob(k: Knob)}

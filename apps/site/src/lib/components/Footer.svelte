@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { framework } from '#lib/framework.svelte.ts';
 	import { LIBRARIES, SITE } from '#lib/site.ts';
 	import Logo from './Logo.svelte';
 </script>
@@ -7,12 +8,12 @@
 	<div class="wrap grid">
 		<div class="about">
 			<a class="brand" href="/"><Logo size={18} /><span>{SITE.name}</span></a>
-			<p>UI effects for Svelte, in one package.</p>
+			<p>UI effects for Svelte, React, Vue and plain HTML.</p>
 			<p class="made">
 				Made by <a href={SITE.author.x} rel="noreferrer">{SITE.author.name}</a>.
 			</p>
 			<p class="credit">
-				A Svelte 5 port of
+				Built on the effect engines of
 				<a href={SITE.upstream.url} rel="noreferrer">{SITE.upstream.name}</a>, created by
 				{SITE.upstream.author}. MIT licensed.
 			</p>
@@ -39,9 +40,19 @@
 				<li><a href="/#how">How to use</a></li>
 				<li><a href="/#faq">FAQs</a></li>
 				{#if SITE.repo}<li><a href={SITE.repo} rel="noreferrer">GitHub</a></li>{/if}
-				<li><a href={SITE.npm} rel="noreferrer">npm</a></li>
+				<li><a href="https://www.npmjs.com/package/{framework.info.pkg}" rel="noreferrer">npm</a></li>
 				<li><a href={SITE.author.x} rel="noreferrer">{SITE.author.handle} on X</a></li>
 				<li><a href={SITE.upstream.repo} rel="noreferrer">Original source</a></li>
+			</ul>
+		</div>
+		<div>
+			<p class="label">Other projects</p>
+			<ul>
+				<!-- No rel="noreferrer": these are the author's own sites, and they may
+				     as well see that the visit came from here. -->
+				{#each SITE.projects as project (project.url)}
+					<li><a href={project.url}>{project.name}</a></li>
+				{/each}
 			</ul>
 		</div>
 	</div>
@@ -55,7 +66,7 @@
 	}
 	.grid {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto auto;
+		grid-template-columns: minmax(0, 1fr) auto auto auto;
 		gap: 40px 64px;
 	}
 	.brand {

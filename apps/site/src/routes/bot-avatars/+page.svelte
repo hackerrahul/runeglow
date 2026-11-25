@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { BotAvatar, RobotHead } from 'runeglow/bot-avatars';
+	import { BotAvatar, RobotHead } from '@runeglow/svelte/bot-avatars';
 	import DocsShell from '#lib/components/DocsShell.svelte';
 	import LibIcon from '#lib/components/LibIcon.svelte';
 	import RobotDocs from '#lib/demos/bot-avatars/RobotDocs.svelte';

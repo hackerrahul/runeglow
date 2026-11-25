@@ -27,5 +27,5 @@ const out = `/**
  */
 export const liquidMetalFragmentShader: string = ${JSON.stringify(liquidMetalFragmentShader)};
 `;
-writeFileSync(join(here, '..', 'src', 'lib', 'metal-fx', 'engine', 'liquidMetal.frag.ts'), out);
+writeFileSync(join(here, '..', 'src', 'metal-fx', 'engine', 'liquidMetal.frag.ts'), out);
 console.log(`liquidMetal @ ${version}: ${liquidMetalFragmentShader.length} characters`);

@@ -1,11 +1,12 @@
 <!-- The fabric, plastic and flat families: one component, BotAvatar, in the
      family's material. The page remounts this when the family changes. -->
 <script lang="ts">
-	import { BotAvatar, botAvatarPresets, botAvatarTypes, type BotAvatarShading } from 'runeglow/bot-avatars';
+	import { BotAvatar, botAvatarPresets, botAvatarTypes, type BotAvatarShading } from '@runeglow/svelte/bot-avatars';
 	import CodeBlock from '#lib/components/CodeBlock.svelte';
 	import InstallTabs from '#lib/components/InstallTabs.svelte';
 	import PropsTable, { type PropRow } from '#lib/components/PropsTable.svelte';
-	import { SITE } from '#lib/site.ts';
+	import { example, expr, fragment, importLine, perFramework, type Framework } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 	import Playground from './Playground.svelte';
 	import type { SoftFamily } from './families.ts';
 
@@ -14,44 +15,71 @@
 	/* the material the family's galleries are shown in */
 	const shading = $derived<BotAvatarShading>(family === 'flat' ? 'crisp' : family);
 	/* fabric is the component's default, so its examples leave the prop out */
-	const shadingAttr = $derived(family === 'fabric' ? '' : ` shading="${shading}"`);
+	const own = $derived(family === 'fabric' ? {} : { shading });
 
-	const quickStart = $derived(`<script>
-  import { BotAvatar } from '${SITE.pkg}/bot-avatars';
-<\/script>
+	const quickStart = $derived(example({ component: 'BotAvatar', props: { type: 'clover', ...own } }));
 
-<BotAvatar type="clover"${shadingAttr} />`);
+	const status = $derived(
+		example({
+			component: 'BotAvatar',
+			props: { type: 'cat', ...own, state: expr("busy ? 'working' : 'default'"), size: 40 },
+			input: 'busy'
+		})
+	);
 
-	const status = $derived(`<script>
-  import { BotAvatar } from '${SITE.pkg}/bot-avatars';
+	const dressed = $derived(
+		fragment([{ component: 'BotAvatar', props: { type: 'ghost', ...own, hat: 'party', glasses: 'round', accessoryColor: '#c8323c' } }])
+	);
 
-  let { busy } = $props();
-<\/script>
+	const lighting = fragment(
+		(['crisp', 'smooth', 'flat'] as const).map((look) => ({ component: 'BotAvatar' as const, props: { type: 'hexagon', shading: look } })),
+		{ comment: 'crisp: a lit rim with a clean edge. smooth: a soft gradient. flat: no lighting.' }
+	);
 
-<BotAvatar type="cat"${shadingAttr} state={busy ? 'working' : 'default'} size={40} />`);
+	const row = $derived(
+		fragment(
+			[
+				{ component: 'BotAvatar', props: { type: 'star', ...own, seed: 0.3 } },
+				{ component: 'BotAvatar', props: { type: 'drop', ...own, seed: 0.3 } }
+			],
+			{ comment: 'The same seed keeps a row blinking in step; leave it out and each goes its own way.' }
+		)
+	);
 
-	const dressed = $derived(`<BotAvatar
-  type="ghost"${family === 'fabric' ? '' : `\n  shading="${shading}"`}
-  hat="party"
-  glasses="round"
-  accessoryColor="#c8323c"
-/>`);
+	const trio = $derived(
+		fragment(
+			[0.1, 0.4, 0.7].map((seed) => ({ component: 'BotAvatar' as const, props: { type: 'dot', ...own, state: 'working', size: 22, seed } })),
+			{ comment: 'A typing indicator: three bare dots, each on its own beat.', wrap: 'span.typing' }
+		)
+	);
 
-	const lighting = `<!-- crisp: a lit rim with a clean edge. smooth: a soft gradient. flat: no lighting. -->
-<BotAvatar type="hexagon" shading="crisp" />
-<BotAvatar type="hexagon" shading="smooth" />
-<BotAvatar type="hexagon" shading="flat" />`;
+	const importOnly = perFramework((fw) => importLine(fw, 'bot-avatars', [fw === 'vanilla' ? 'mountBotAvatar' : 'BotAvatar']));
 
-	const row = $derived(`<!-- The same seed keeps a row blinking in step; leave it out and each goes its own way. -->
-<BotAvatar type="star"${shadingAttr} seed={0.3} />
-<BotAvatar type="drop"${shadingAttr} seed={0.3} />`);
-
-	const trio = $derived(`<!-- A typing indicator: three bare dots, each on its own beat. -->
-<span class="typing">
-  <BotAvatar type="dot"${shadingAttr} state="working" size={22} seed={0.1} />
-  <BotAvatar type="dot"${shadingAttr} state="working" size={22} seed={0.4} />
-  <BotAvatar type="dot"${shadingAttr} state="working" size={22} seed={0.7} />
-</span>`);
+	/* how the element itself is reached, which each framework does its own way */
+	const reach: Record<Framework, PropRow[]> = {
+		svelte: [
+			{ name: 'ref', type: 'HTMLCanvasElement | null', description: 'The canvas element. Bindable with bind:ref.' },
+			{ name: '...rest', type: 'HTMLCanvasAttributes', description: 'class, style, aria-label, onclick and other attributes are forwarded to the canvas.' }
+		],
+		react: [
+			{ name: 'ref', type: 'Ref<HTMLCanvasElement>', description: 'Reaches the canvas element.' },
+			{ name: '...rest', type: 'CanvasHTMLAttributes', description: 'className, style, aria-label, onClick and other attributes are forwarded to the canvas.' }
+		],
+		vue: [
+			{ name: 'template ref', type: '{ element, poke() }', description: 'A ref on the component gives the canvas as element, and poke(), which does what a click does.' },
+			{ name: 'attributes', type: 'fallthrough', description: 'class, style, aria-label, @click and other attributes fall through to the canvas.' }
+		],
+		elements: [
+			{ name: 'label', type: 'string', description: 'The accessible name, in place of the one the avatar gives itself.' },
+			{ name: 'poke()', type: 'method', description: 'Does what a click does: a hop and a turn.' },
+			{ name: 'properties', type: 'camelCase', description: 'Every option is also a property: accessoryColor in JavaScript is accessory-color in HTML.' }
+		],
+		vanilla: [
+			{ name: 'class', type: 'string', description: 'A class for the canvas.' },
+			{ name: 'label', type: 'string', description: 'The accessible name, in place of the one the avatar gives itself.' },
+			{ name: 'returns', type: '{ element, update, poke, destroy }', description: 'The canvas; update(options) changes some options and keeps the rest; destroy() stops it and removes the canvas.' }
+		]
+	};
 
 	const main: PropRow[] = [
 		{ name: 'type', type: 'BotAvatarType', default: "'clover'", description: 'The body shape, one of twenty-one. Each has its own colour and face position.' },
@@ -76,8 +104,6 @@
 		{ name: 'pose', type: '{ yaw?, pitch?, roll? }', description: 'Holds the body at an orientation, in radians, in place of its own motion.' },
 		{ name: 'path', type: 'string', description: 'SVG path data in a 100 by 100 box. Replaces the type’s outline.' },
 		{ name: 'theme', type: "'auto' | 'dark' | 'light'", default: "'auto'", description: 'The surface the avatar sits on. auto reads data-theme or a dark/light class on an ancestor, then the system.' },
-		{ name: 'ref', type: 'HTMLCanvasElement | null', description: 'The canvas element. Bindable with bind:ref.' },
-		{ name: '...rest', type: 'HTMLCanvasAttributes', description: 'class, style, aria-label, onclick and other attributes are forwarded to the canvas.' }
 	];
 
 	const light: PropRow[] = [
@@ -216,7 +242,7 @@
 	<h2>Install</h2>
 	<div class="ba-stack">
 		<InstallTabs registry="bot-avatars" />
-		<CodeBlock code={`import { BotAvatar } from '${SITE.pkg}/bot-avatars';`} copyLabel="Copy import" />
+		<CodeBlock code={importOnly} copyLabel="Copy import" />
 	</div>
 </section>
 
@@ -246,7 +272,7 @@
 
 <section id="props">
 	<h2>Props</h2>
-	<PropsTable rows={main} />
+	<PropsTable rows={[...main, ...reach[framework.id]]} />
 </section>
 
 <section id="material">

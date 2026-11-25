@@ -1,4 +1,4 @@
-import type { CursorSprite } from 'runeglow/thinking-orbs';
+import type { CursorSprite } from '@runeglow/svelte/thinking-orbs';
 
 /* Gravity hides the real pointer near an orb and draws a raster in its
    place, so the raster should match the platform's own pointer. Those

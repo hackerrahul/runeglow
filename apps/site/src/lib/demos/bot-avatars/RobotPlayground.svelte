@@ -11,13 +11,14 @@
 		type RobotHeadProps,
 		type RobotHeadShape,
 		type RobotHeadState
-	} from 'runeglow/bot-avatars';
+	} from '@runeglow/svelte/bot-avatars';
 	import PanelGroup from '#lib/components/PanelGroup.svelte';
 	import PlaygroundShell from '#lib/components/PlaygroundShell.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import Slider from '#lib/components/Slider.svelte';
 	import SwatchRow from '#lib/components/SwatchRow.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
+	import { example, importStep, labelOption, perFramework, type Props } from '#lib/code.ts';
 	import { SITE } from '#lib/site.ts';
 
 	const title = (v: string) => v[0].toUpperCase() + v.slice(1);
@@ -127,41 +128,24 @@
 		return o;
 	});
 
-	const attr = (key: string, value: unknown): string => {
-		if (typeof value === 'string') return `${key}="${value}"`;
-		if (value === true) return key;
-		if (value && typeof value === 'object') {
-			const body = Object.entries(value)
-				.map(([k, v]) => `${k}: ${v}`)
-				.join(', ');
-			return `${key}={{ ${body} }}`;
-		}
-		return `${key}={${value}}`;
-	};
+	const snippet = $derived(example({ component: 'RobotHead', props: overrides as Props }));
 
-	const snippet = $derived.by(() => {
-		const p = Object.entries(overrides).map(([k, v]) => attr(k, v));
-		const tag =
-			p.length === 0 ? '<RobotHead />'
-			: p.length <= 2 ? `<RobotHead ${p.join(' ')} />`
-			: `<RobotHead\n  ${p.join('\n  ')}\n/>`;
-		return `<script>\n  import { RobotHead } from '${SITE.pkg}/bot-avatars';\n<\/script>\n\n${tag}`;
-	});
-
-	const prompt = $derived(`Add a Robot head from ${SITE.name} to this Svelte 5 app: a 3D robot head with an LED face
+	const prompt = $derived(
+		perFramework(
+			(fw, info) => `Add a Robot head from ${SITE.name} to this ${info.app}: a 3D robot head with an LED face
 that shows what an AI agent is doing.
 
-1. Install the package with the project's package manager, for example: pnpm add ${SITE.pkg}
-2. Import the component: import { RobotHead } from '${SITE.pkg}/bot-avatars'
+1. Install the package with the project's package manager, for example: pnpm add ${info.pkg}
+2. ${importStep(fw, 'RobotHead')}
 3. Place it where the agent is shown: beside its messages, in a header, or as a status
    indicator. It is a size by size box; hops, the antenna's glow and the floor shadow draw
    past the box without taking room in the layout, so do not put overflow: hidden right
    round it.
 4. Use exactly this configuration:
 
-${snippet}
+${snippet[fw]}
 
-Parameter vocabulary, for later changes:
+Parameter vocabulary, for later changes${fw === 'elements' ? ' (as attributes, camelCase names become kebab-case: floorShadow is floor-shadow)' : ''}:
 - shape: ${robotHeadShapes.map((v) => `"${v}"`).join(' | ')}
 - state: ${robotHeadStates.map((v) => `"${v}"`).join(' | ')}.
   Drive it from the agent's real status. "waiting" means it needs the user; "success"
@@ -180,8 +164,10 @@ Parameter vocabulary, for later changes:
 - pose: { yaw, pitch, roll } in radians; holds the head at an orientation
 
 Notes:
-- It labels itself ("Robot, thinking"); pass aria-label to change the wording.
-- Under prefers-reduced-motion it shows the state's still pose.`);
+- It labels itself ("Robot, thinking"); pass ${labelOption(fw)} to change the wording.
+- Under prefers-reduced-motion it shows the state's still pose.`
+		)
+	);
 </script>
 
 {#snippet num(key: NumKey, label: string, min: number, max: number, step: number, unit: string)}

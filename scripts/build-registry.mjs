@@ -1,5 +1,7 @@
 // Writes apps/site/registry.json: one shadcn-svelte registry item per library,
-// listing that library's source files as they are in the npm package's source.
+// listing that library's Svelte source files as they are in @runeglow/svelte.
+// A library built on the framework-free core gets the core, the `runeglow` npm
+// package, as a dependency: its engine is installed, its components copied.
 //
 //   node scripts/build-registry.mjs
 //
@@ -11,7 +13,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const lib = join(root, 'packages/runeglow/src/lib');
+const lib = join(root, 'packages/svelte/src/lib');
 const site = join(root, 'apps/site');
 
 const INFO = {
@@ -45,13 +47,15 @@ const items = Object.entries(INFO).map(([name, [title, description]]) => {
       if (m[1] !== name && m[1] in INFO && relative(dir, join(dirname(file), '..', m[1])).startsWith('..')) needs.add(m[1]);
     }
   }
+  // A library whose components sit on the core needs the core installed.
+  const core = files.some((file) => /from\s+['"]runeglow\//.test(readFileSync(file, 'utf8')));
   return {
     name,
     type: 'registry:file',
     title,
     description,
     // The registry build wants both lists present, empty or not.
-    dependencies: DEPENDENCIES[name] ?? [],
+    dependencies: [...(core ? ['runeglow'] : []), ...(DEPENDENCIES[name] ?? [])],
     devDependencies: DEV_DEPENDENCIES[name] ?? [],
     registryDependencies: [...needs].sort().map((n) => `local:${n}`),
     files: files.map((file) => ({

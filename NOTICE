@@ -1,13 +1,14 @@
 Runeglow
 
-Runeglow is a Svelte 5 port of Libraries.dev by Jakub Antalik
+Runeglow began as a Svelte 5 port of Libraries.dev by Jakub Antalik
 (https://github.com/Jakubantalik/Libraries.dev), which is published under the
 MIT License, Copyright (c) 2026 Jakub Antalik.
 
 The effect engines, stylesheet generators and shaders under
-packages/runeglow/src/lib are carried over from that project, in most files
-unchanged. The Svelte components that wrap them, and the site under apps/site,
-are new.
+packages/runeglow/src are carried over from that project, in most files
+unchanged. The functions that run them on a page with no framework, the
+components round them in packages/svelte, packages/react, packages/vue and
+packages/elements, and the site under apps/site are new.
 
 The machine-learning models that Libraries.dev publishes (Magnet.mfxl and
 VoicePosition.mfxl) are under a separate licence and are not part of this
@@ -15,8 +16,8 @@ project.
 
 Third-party software
 
-Liquid metal (packages/runeglow/src/lib/metal-fx) includes software developed
-by Paper Design, Inc.
+Liquid metal (packages/runeglow/src/metal-fx) includes software developed by
+Paper Design, Inc.
 
   Paper Shaders (https://github.com/paper-design/shaders)
   Copyright (c) Paper Design, Inc.
@@ -27,19 +28,19 @@ by Paper Design, Inc.
 Specifically:
 
   * The `liquidMetal` fragment shader in
-    src/lib/metal-fx/engine/liquidMetal.frag.ts is copied from the
+    src/metal-fx/engine/liquidMetal.frag.ts is copied from the
     `@paper-design/shaders` npm package at version 0.0.80 by
     scripts/vendor-liquid-metal.mjs.
 
-  * The sizing vertex shader in src/lib/metal-fx/engine/shaders.ts
+  * The sizing vertex shader in src/metal-fx/engine/shaders.ts
     (`VERT_SHADER_SRC`) is copied from
     `packages/shaders/src/vertex-shader.ts` at 0.0.80, as it is in the
     upstream metal-fx package.
 
 No changes were made to either shader's source.
 
-Robot heads (packages/runeglow/src/lib/bot-avatars/robot) is a Svelte port of
-software developed by Fayaz Ahmed.
+Robot heads (packages/runeglow/src/bot-avatars/robot) is a port of software
+developed by Fayaz Ahmed.
 
   robot-heads (https://github.com/fayazara/robot-heads)
   Copyright (c) 2026 Fayaz Ahmed
@@ -56,4 +57,6 @@ Specifically:
     colour; baked reliefs made at a few sizes and the least recently used
     dropped.
 
-  * RobotHead.svelte, presets.ts and types.ts are new.
+  * head.ts, presets.ts and types.ts are new, as are the components round
+    them in packages/svelte, packages/react, packages/vue and
+    packages/elements.

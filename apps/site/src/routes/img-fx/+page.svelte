@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ImageGeneration } from 'runeglow/img-fx';
+	import { ImageGeneration } from '@runeglow/svelte/img-fx';
 	import CodeBlock from '#lib/components/CodeBlock.svelte';
 	import DocsShell from '#lib/components/DocsShell.svelte';
 	import InstallTabs from '#lib/components/InstallTabs.svelte';
@@ -7,7 +7,9 @@
 	import PropsTable, { type PropRow } from '#lib/components/PropsTable.svelte';
 	import { IMAGE_POOL } from '#lib/demos/img-fx/images.ts';
 	import Playground from '#lib/demos/img-fx/Playground.svelte';
-	import { SITE } from '#lib/site.ts';
+	import { importOnly, manual, quickStart } from '#lib/demos/img-fx/code.ts';
+	import type { Framework } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 
 	/* The three example cards share one pool. Each reports what it is showing,
 	   so no two of them show the same image at once. */
@@ -17,32 +19,6 @@
 		if (e.phase === 'reveal' && e.src) showing[i] = e.src;
 		else if (e.phase === 'idle') showing[i] = null;
 	};
-
-	const quickStart = `<script>
-  import { ImageGeneration } from '${SITE.pkg}/img-fx';
-<\/script>
-
-<ImageGeneration preset="pixels-organic" images={['/img/a.jpg', '/img/b.jpg']} autoReveal>
-  <div class="card" style="width: 320px; height: 320px; border-radius: 20px;"></div>
-</ImageGeneration>`;
-
-	const manual = `<script>
-  import { ImageGeneration } from '${SITE.pkg}/img-fx';
-
-  let card; // the component
-  let { src, loading } = $props();
-
-  // Show the effect while the image is being made, then reveal it.
-  $effect(() => {
-    if (!loading && src) card?.triggerReveal({ hold: 'manual' });
-  });
-<\/script>
-
-<ImageGeneration bind:this={card} images={src}>
-  <div class="card"></div>
-</ImageGeneration>
-
-<button onclick={() => card.triggerRegenerate({ durationMs: 3000 })}>Regenerate</button>`;
 
 	const props: PropRow[] = [
 		{ name: 'preset', type: "'pixels-organic' | 'pixels-mechanic' | 'sweep-gradient'", default: "'pixels-organic'", description: 'A flowing mosaic, a mechanical one, or a gradient sweeping corner to corner with cells flickering along it.' },
@@ -59,13 +35,59 @@
 		{ name: 'cardBg', type: 'string', default: 'per preset', description: 'The card surface the effect sits on and reasons against.' },
 		{ name: 'colors', type: '(string | null)[]', description: 'Seven palette slots. null keeps the preset’s colour for that slot.' },
 		{ name: 'borderRadius', type: 'number', default: 'auto', description: 'Corner radius in px. Omit it to read the wrapped element’s.' },
-		{ name: 'paused', type: 'boolean', default: 'false', description: 'Freezes the effect and the reveal schedule.' },
-		{ name: 'onCycle', type: '(event) => void', description: 'Called on each phase change: idle, reveal, visible, hide.' },
-		{ name: 'excludeSrcs', type: '() => string[] | Set<string>', description: 'Images to avoid on the next pick, so cards sharing a pool don’t show the same one.' },
-		{ name: 'fragmentShader', type: 'string', description: 'A replacement fragment shader. It applies page-wide while set.' },
-		{ name: 'ref', type: 'HTMLDivElement | null', description: 'The wrapper element. Bindable with bind:ref.' },
-		{ name: '...rest', type: 'HTMLAttributes<HTMLDivElement>', description: 'class, style and other attributes are forwarded to the wrapper.' }
+		{ name: 'paused', type: 'boolean', default: 'false', description: 'Freezes the effect and the reveal schedule.' }
 	];
+
+	/* how a phase of the reveal cycle is heard, which each framework does its own way */
+	const phases = 'Called on each phase change: idle, reveal, visible, hide.';
+	const cycle: Record<Framework, PropRow> = {
+		svelte: { name: 'onCycle', type: '(event) => void', description: phases },
+		react: { name: 'onCycle', type: '(event) => void', description: phases },
+		vue: { name: 'onCycle', type: '(event) => void', description: `${phases} In a template, @cycle.` },
+		elements: { name: 'onCycle', type: '(event) => void', description: `${phases} A property only. Each phase is also a cycle event, with the phase and the image’s address in event.detail.` },
+		vanilla: { name: 'onCycle', type: '(event) => void', description: phases }
+	};
+
+	const advanced = $derived<PropRow[]>([
+		{
+			name: 'excludeSrcs',
+			type: '() => string[] | Set<string>',
+			description: `Images to avoid on the next pick, so cards sharing a pool don’t show the same one.${framework.id === 'elements' ? ' A property only.' : ''}`
+		},
+		{ name: 'fragmentShader', type: 'string', description: 'A replacement fragment shader. It applies page-wide while set.' }
+	]);
+
+	/* how the wrapper and the reveal functions are reached, which each framework does its own way */
+	const reach: Record<Framework, PropRow[]> = {
+		svelte: [
+			{ name: 'ref', type: 'HTMLDivElement | null', description: 'The wrapper element. Bindable with bind:ref.' },
+			{ name: '...rest', type: 'HTMLAttributes<HTMLDivElement>', description: 'class, style and other attributes are forwarded to the wrapper.' }
+		],
+		react: [
+			{ name: 'ref', type: 'Ref<ImageGenerationRef>', description: 'The functions below, and the wrapper element as element.' },
+			{ name: '...rest', type: 'HTMLAttributes<HTMLDivElement>', description: 'className, style and other attributes are forwarded to the wrapper.' }
+		],
+		vue: [
+			{ name: 'template ref', type: '{ element, …functions }', description: 'A ref on the component gives the wrapper as element, and the functions below.' },
+			{ name: 'attributes', type: 'fallthrough', description: 'class, style, @click and other attributes fall through to the wrapper.' }
+		],
+		elements: [
+			{ name: 'properties', type: 'camelCase', description: 'Every option is an attribute and a property: pixelScale in JavaScript is pixel-scale in HTML. A list is written as JSON in an attribute; images may also be one address as it stands.' },
+			{ name: '::part(wrapper)', type: 'CSS', description: 'The wrapper is in the element’s shadow root. Style it from the page as runeglow-image-generation::part(wrapper).' }
+		],
+		vanilla: [
+			{ name: 'returns', type: '{ element, update, destroy, …functions }', description: 'The wrapper, which is the element it was given; update(options) changes some options and keeps the rest; destroy() stops the card and puts the element back as it was found; and the functions below.' }
+		]
+	};
+
+	/* where the reveal functions are found */
+	const HOLD: Record<Framework, string> = {
+		svelte: 'bind the component',
+		react: 'put a ref on the component',
+		vue: 'put a template ref on the component',
+		elements: 'take hold of the element',
+		vanilla: 'keep what the call returns'
+	};
 
 	const fns: PropRow[] = [
 		{ name: 'triggerReveal(opts?)', type: "{ hold?: 'auto' | 'manual' }", description: 'Reveals an image now. With hold: manual it stays until triggerHide().' },
@@ -112,7 +134,7 @@
 		<h2>Install</h2>
 		<div class="stack">
 			<InstallTabs extra="three" registry="img-fx" />
-			<CodeBlock code={`import { ImageGeneration } from '${SITE.pkg}/img-fx';`} copyLabel="Copy import" />
+			<CodeBlock code={importOnly} copyLabel="Copy import" />
 		</div>
 		<p class="text after">
 			This one needs <code class="icode">three</code> alongside the package. The other libraries don’t.
@@ -122,12 +144,20 @@
 	<section id="usage">
 		<h2>Usage</h2>
 		<p class="text">
-			Wrap the card. The wrapper sizes itself to it and reads its corner radius. With
-			<code class="icode">autoReveal</code> it shows an image from the pool on a loop.
+			{#if framework.id === 'vanilla'}
+				Put the card inside an element and hand that element over. It becomes the wrapper: it sizes
+				itself to the card and reads its corner radius.
+			{:else if framework.id === 'elements'}
+				Put the card inside the tag. The tag sizes itself to it and reads its corner radius.
+			{:else}
+				Wrap the card. The wrapper sizes itself to it and reads its corner radius.
+			{/if}
+			With <code class="icode">{framework.id === 'elements' ? 'auto-reveal' : 'autoReveal'}</code> it shows an
+			image from the pool on a loop.
 		</p>
 		<CodeBlock code={quickStart} />
 		<p class="text">
-			For a real generation flow, bind the component and call its functions: reveal when the image
+			For a real generation flow, {HOLD[framework.id]} and call its functions: reveal when the image
 			arrives, and regenerate to break it up and resolve the next.
 		</p>
 		<CodeBlock code={manual} />
@@ -135,12 +165,27 @@
 
 	<section id="props">
 		<h2>Props</h2>
-		<PropsTable rows={props} />
+		<PropsTable rows={[...props, cycle[framework.id], ...advanced, ...reach[framework.id]]} />
 	</section>
 
 	<section id="functions">
 		<h2>Functions</h2>
-		<p class="text">Bind the component with <code class="icode">bind:this</code> and call these on it.</p>
+		<p class="text">
+			{#if framework.id === 'svelte'}
+				Bind the component with <code class="icode">bind:this</code> and call these on it.
+			{:else if framework.id === 'react'}
+				Put a <code class="icode">ref</code> on the component and call these on
+				<code class="icode">ref.current</code>.
+			{:else if framework.id === 'vue'}
+				Put a template ref on the component and call these on it.
+			{:else if framework.id === 'elements'}
+				These are methods of the element.
+			{:else}
+				These are on what <code class="icode">mountImageGeneration</code> returns.
+				<code class="icode">attachImageGeneration</code> returns them too, with an
+				<code class="icode">update</code> that takes the whole set of options each time.
+			{/if}
+		</p>
 		<PropsTable rows={fns} nameLabel="Function" />
 	</section>
 

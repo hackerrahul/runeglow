@@ -1,0 +1,24 @@
+{
+	"name": "sandbox",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "A page for every Runeglow library in every way of using it outside Svelte: no framework, React, Vue and custom elements. For checking the adapters by eye; not deployed.",
+	"scripts": {
+		"dev": "vite",
+		"check": "tsc -p tsconfig.json --noEmit"
+	},
+	"devDependencies": {
+		"@runeglow/elements": "workspace:*",
+		"@runeglow/react": "workspace:*",
+		"@runeglow/vue": "workspace:*",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"runeglow": "workspace:*",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.8",
+		"vue": "^3.5.0"
+	}
+}

@@ -5,8 +5,10 @@
 	import Slider from '#lib/components/Slider.svelte';
 	import SwatchRow from '#lib/components/SwatchRow.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
+	import { perFramework, type Props } from '#lib/code.ts';
 	import { SITE } from '#lib/site.ts';
 	import BendDemo from './BendDemo.svelte';
+	import { effectIs, importStep, playgroundCode, promptNotes, vocabulary, wrapStep, type Tuning } from './code.ts';
 	import DissolveDemo from './DissolveDemo.svelte';
 	import MeltDemo from './MeltDemo.svelte';
 	import MorphDemo from './MorphDemo.svelte';
@@ -115,135 +117,90 @@
 		melt = { ...MELT_DEFAULTS };
 	}
 
-	const num = (v: number) => String(+v.toFixed(3));
+	const num = (v: number) => +v.toFixed(3);
 	/* The slider snippets below write one numeric key of a settings object. */
 	const n = (o: object) => o as Record<string, number>;
 
-	/* The group's attributes: only what differs from the library's defaults,
+	/* The group's options: only what differs from the library's defaults,
 	   plus the fill, which every demo sets. */
-	const groupAttrs = $derived.by(() => {
-		const p: string[] = [];
-		if (g.blur !== 6) p.push(`blur={${num(g.blur)}}`);
-		if (g.contrast !== 18) p.push(`contrast={${num(g.contrast)}}`);
-		p.push(`fill="${fill}"`);
-		if (g.shadow) p.push('shadow="0 2px 6px rgb(0 0 0 / 0.05), 0 4px 42px rgb(0 0 0 / 0.24)"');
-		if (g.waviness !== 0) p.push(`waviness={${num(g.waviness)}}`);
-		if (g.waviness !== 0 && g.wavinessFreq !== 0.018) p.push(`wavinessFreq={${num(g.wavinessFreq)}}`);
-		if (g.filterPadding !== 24) p.push(`filterPadding={${g.filterPadding}}`);
-		return p.join(' ');
+	const groupOptions = $derived.by(() => {
+		const p: Props = {};
+		if (g.blur !== 6) p.blur = num(g.blur);
+		if (g.contrast !== 18) p.contrast = num(g.contrast);
+		p.fill = fill;
+		if (g.shadow) p.shadow = '0 2px 6px rgb(0 0 0 / 0.05), 0 4px 42px rgb(0 0 0 / 0.24)';
+		if (g.waviness !== 0) p.waviness = num(g.waviness);
+		if (g.waviness !== 0 && g.wavinessFreq !== 0.018) p.wavinessFreq = num(g.wavinessFreq);
+		if (g.filterPadding !== 24) p.filterPadding = g.filterPadding;
+		return p;
 	});
 
-	const obj = (pairs: Array<[string, string] | null>) => {
-		const inner = pairs.filter((p): p is [string, string] => !!p).map(([k, v]) => `${k}: ${v}`);
-		return inner.length ? `{{ ${inner.join(', ')} }}` : '';
+	/* the keys of a settings object that differ from the library's own defaults */
+	const moved = <T extends object>(now: T, def: T): Tuning => {
+		const out: Tuning = {};
+		for (const key of Object.keys(def) as (keyof T & string)[]) if (now[key] !== def[key]) out[key] = num(now[key] as number);
+		return out;
 	};
 
+	/* What the demo on the stage is given, as each framework writes it. */
 	const snippet = $derived.by(() => {
-		const head = `<script>\n  import { Liquid } from '${SITE.pkg}/liquid-gooey';`;
-		const close = `\n<\/script>\n\n`;
 		if (kind === 'morph') {
-			const t = `transition={{ duration: ${morph.openDur}, ease: '${EASES[morph.openEase]}' }}`;
-			const sx = num(54 * morph.spread);
-			const sy = num(34 * morph.spread);
-			const ty = num(64 * morph.spread);
-			const d1 = morph.openStagger ? ` delay={${morph.openStagger}}` : '';
-			const d2 = morph.openStagger ? ` delay={${morph.openStagger * 2}}` : '';
-			return (
-				`${head}\n\n  let open = $state(false);${close}` +
-				`<Liquid ${groupAttrs}>\n` +
-				`  <Liquid.Item x={open ? -${sx} : 0} y={open ? -${sy} : 0} ${t}>\n    <button class="round">…</button>\n  </Liquid.Item>\n` +
-				`  <Liquid.Item y={open ? -${ty} : 0} ${t}${d1}>\n    <button class="round">…</button>\n  </Liquid.Item>\n` +
-				`  <Liquid.Item x={open ? ${sx} : 0} y={open ? -${sy} : 0} ${t}${d2}>\n    <button class="round">…</button>\n  </Liquid.Item>\n` +
-				`  <Liquid.Item>\n    <button class="round" onclick={() => (open = !open)}>+</button>\n  </Liquid.Item>\n` +
-				`</Liquid>`
-			);
+			return playgroundCode(groupOptions, {
+				kind,
+				transition: { duration: morph.openDur, ease: EASES[morph.openEase] },
+				sx: num(54 * morph.spread),
+				sy: num(34 * morph.spread),
+				ty: num(64 * morph.spread),
+				stagger: morph.openStagger
+			});
 		}
 		if (kind === 'shape') {
-			const m = obj([
-				['shape', 'true'],
-				shape.speed !== 1 ? ['speed', num(shape.speed)] : null,
-				shape.bounce !== 0.5 ? ['bounce', num(shape.bounce)] : null,
-				shape.contentBlur !== 7 ? ['contentBlur', num(shape.contentBlur)] : null
-			]);
-			return (
-				`${head}\n\n  let open = $state(false);${close}` +
-				`<Liquid ${groupAttrs}>\n` +
-				`  <!-- Resize the element however you like; the liquid springs after it. -->\n` +
-				`  <Liquid.Item morph=${m}>\n` +
-				`    <button class={['panel', open && 'open']} onclick={() => (open = !open)}>…</button>\n` +
-				`  </Liquid.Item>\n` +
-				`</Liquid>`
-			);
+			return playgroundCode(groupOptions, {
+				kind,
+				morph: { shape: true, ...moved({ speed: shape.speed, bounce: shape.bounce, contentBlur: shape.contentBlur }, { speed: 1, bounce: 0.5, contentBlur: 7 }) }
+			});
 		}
 		if (kind === 'dissolve') {
 			const k = dissolve.strength;
-			const d = obj([
-				['warp', num(dissolve.warp * k)],
-				['blur', num(5 * k)],
-				['mix', num(dissolve.mix * k)],
-				['gravity', num(dissolve.gravity * k)],
-				['zone', num(dissolve.zone)],
-				['range', num(dissolve.range)]
-			]);
-			const adv = `{{ advanced: { blobInset: ${num(dissolve.blobInset)}, bridgeGrow: ${num(dissolve.bridgeGrow)} } }}`;
-			const item = (n: string) =>
-				`  <Liquid.Item dissolve=${d} morph=${adv}>\n    <div class="photo" style:transform="translate({${n}.x}px, {${n}.y}px)">\n      <img src={${n}.src} alt="" />\n    </div>\n  </Liquid.Item>\n`;
-			return `${head}${close}<Liquid ${groupAttrs}>\n${item('a')}${item('b')}</Liquid>`;
+			return playgroundCode(groupOptions, {
+				kind,
+				dissolve: {
+					warp: num(dissolve.warp * k),
+					blur: num(5 * k),
+					mix: num(dissolve.mix * k),
+					gravity: num(dissolve.gravity * k),
+					zone: num(dissolve.zone),
+					range: num(dissolve.range)
+				},
+				morph: { advanced: { blobInset: num(dissolve.blobInset), bridgeGrow: num(dissolve.bridgeGrow) } }
+			});
 		}
 		if (kind === 'move') {
-			const m = obj([
-				move.springiness !== 0.5 ? ['springiness', num(move.springiness)] : null,
-				move.wobble !== 0.5 ? ['wobble', num(move.wobble)] : null,
-				move.stretch !== 0.36 ? ['stretch', num(move.stretch)] : null,
-				move.trail !== 0.575 ? ['trail', num(move.trail)] : null
-			]);
-			return (
-				`${head}\n\n  let x = $state(84);${close}` +
-				`<Liquid ${groupAttrs}>\n` +
-				`  <Liquid.Item effect="move"${m ? ` move=${m}` : ''}>\n` +
-				`    <div class="thumb" style:transform="translateX({x}px)"></div>\n` +
-				`  </Liquid.Item>\n` +
-				`</Liquid>`
-			);
+			/* the library's own defaults, which are not the demo's */
+			return playgroundCode(groupOptions, { kind, move: moved(move, { springiness: 0.5, wobble: 0.5, stretch: 0.36, trail: 0.575 }) });
 		}
 		if (kind === 'bend') {
-			const b = obj([
-				bend.vertical !== 0.6 ? ['vertical', num(bend.vertical)] : null,
-				bend.horizontal !== 0.35 ? ['horizontal', num(bend.horizontal)] : null
-			]);
-			return (
-				`${head}${close}` +
-				`<Liquid ${groupAttrs}>\n` +
-				`  <Liquid.Item effect="bend"${b ? ` bend=${b}` : ''}>\n` +
-				`    <!-- The live bend is published as --lg-bend-x, --lg-bend-y (px) and\n         --lg-bend-xn, --lg-bend-yn (unitless), for content that leans with it. -->\n` +
-				`    <div class="card" style:transform="translate({x}px, {y}px)">…</div>\n` +
-				`  </Liquid.Item>\n` +
-				`</Liquid>`
-			);
+			return playgroundCode(groupOptions, {
+				kind,
+				bend: moved({ vertical: bend.vertical, horizontal: bend.horizontal }, { vertical: 0.6, horizontal: 0.35 })
+			});
 		}
-		const m = obj(
-			(Object.keys(MELT_DEFAULTS) as (keyof typeof MELT_DEFAULTS)[])
-				.filter((k) => melt[k] !== MELT_DEFAULTS[k])
-				.map((k) => [k, num(melt[k])] as [string, string])
-		);
-		const item = (n: string) =>
-			`  <Liquid.Item effect="melt"${m ? ` melt=${m}` : ''}>\n    <div class="card" style:left="{${n}.x}px" style:top="{${n}.y}px">\n      <img src={${n}.src} alt="" />\n    </div>\n  </Liquid.Item>\n`;
-		return `${head}${close}<Liquid class="stage">\n${item('a')}${item('b')}</Liquid>`;
+		return playgroundCode(groupOptions, { kind, melt: moved(melt, MELT_DEFAULTS) });
 	});
 
-	const prompt = $derived(`Add a Gooey (liquid) effect from ${SITE.name} to this Svelte 5 app.
+	const prompt = $derived(
+		perFramework(
+			(fw, info) => `Add a Gooey (liquid) effect from ${SITE.name} to this ${info.app}.
 
-1. Install the package with the project's package manager, for example: pnpm add ${SITE.pkg}
-2. Import it: import { Liquid } from '${SITE.pkg}/liquid-gooey'
-3. Wrap the pieces that should behave as one liquid in <Liquid>, and each piece in
-   <Liquid.Item>. The group draws one merged surface behind them; your elements stay
-   crisp on top, so give them a transparent background and let the group's fill show.
+1. Install the package with the project's package manager, for example: pnpm add ${info.pkg}
+2. ${importStep(fw)}
+3. ${wrapStep(fw)}
 4. Start from this configuration:
 
-${snippet}
+${snippet[fw]}
 
 Parameter vocabulary, for later changes:
-<Liquid> (the group)
+${vocabulary[fw].group}
 - blur: goo blur in px; how far apart pieces start bridging (default 6)
 - contrast: how sharp the liquid edge is (default 18)
 - fill: colour of the surface, any CSS colour
@@ -252,7 +209,7 @@ Parameter vocabulary, for later changes:
 - filterPadding: extra room for pieces that travel outside the group box
 - filter: raw SVG filter primitives that replace the goo chain
 
-<Liquid.Item>
+${vocabulary[fw].item}
 - effect: "morph" (default; pieces merge) | "move" (surface trails a moving element) |
   "bend" (body bows with velocity) | "melt" (two images run into each other)
 - x, y, scale with transition and delay: the library moves the element and its liquid
@@ -269,9 +226,13 @@ Parameter vocabulary, for later changes:
 - radius: overrides the measured border radius
 
 Notes:
-- dissolve is ignored on effect="move".
-- effect="melt" works on the first two melt items in a group and needs an image:
-  an <img> inside the item, or melt.src.`);
+- dissolve is ignored on ${effectIs(fw, 'move')}.
+- ${effectIs(fw, 'melt')} works on the first two melt items in a group and needs an image:
+  an <img> inside the item, or melt.src.${promptNotes(fw)
+		.map((line) => `\n${line}`)
+		.join('')}`
+		)
+	);
 </script>
 
 {#snippet pct(target: Record<string, number>, key: string, label: string, def: number, min = 0, max = 1, step = 0.05)}

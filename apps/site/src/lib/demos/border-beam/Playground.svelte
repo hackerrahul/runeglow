@@ -5,13 +5,14 @@
 		type BorderBeamColorVariant,
 		type BorderBeamSize,
 		type BorderBeamTheme
-	} from 'runeglow/border-beam';
+	} from '@runeglow/svelte/border-beam';
 	import CodeField from '#lib/components/CodeField.svelte';
 	import PanelGroup from '#lib/components/PanelGroup.svelte';
 	import PlaygroundShell from '#lib/components/PlaygroundShell.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import Slider from '#lib/components/Slider.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
+	import { attrs, importLine, importStep, options, perFramework, expr, type Props } from '#lib/code.ts';
 	import { SITE } from '#lib/site.ts';
 	import Subject, { type SubjectKind } from './Subject.svelte';
 
@@ -161,64 +162,159 @@
 	const styleAttr = $derived(vars.map(([k, v]) => `${k}: ${v}`).join('; '));
 	const extraCss = $derived(s.css.trim());
 
-	const snippet = $derived.by(() => {
-		const p: string[] = [];
-		if (s.size !== 'md') p.push(`size="${s.size}"`);
-		if (s.colorVariant !== 'colorful') p.push(`colorVariant="${s.colorVariant}"`);
-		if (s.theme !== 'dark') p.push(`theme="${s.theme}"`);
-		if (s.strength !== 100) p.push(`strength={${num(s.strength / 100)}}`);
-		if (s.duration != null) p.push(`duration={${num(s.duration)}}`);
-		if (s.glowSize !== 1) p.push(`glowSize={${num(s.glowSize)}}`);
-		if (s.brightness != null) p.push(`brightness={${num(s.brightness)}}`);
-		if (s.saturation != null) p.push(`saturation={${num(s.saturation)}}`);
-		if (s.hueRange !== 30 && !huesLocked && !isPulse) p.push(`hueRange={${s.hueRange}}`);
-		if (s.radius != null) p.push(`borderRadius={${s.radius}}`);
-		if (s.staticColors && s.colorVariant !== 'mono') p.push('staticColors');
-		if (!s.active) p.push('active={false}');
-		if (vars.length) p.push(`style="${styleAttr}"`);
-		if (extraCss) p.push('css={beamCss}');
-		const attrs = p.length ? `\n  ${p.join('\n  ')}\n` : '';
-		const decl = extraCss
-			? `\n\n  const beamCss = \`\n${extraCss
-					.split('\n')
-					.map((l) => `    ${l}`)
-					.join('\n')}\n  \`;`
-			: '';
-		return `<script>\n  import { BorderBeam } from '${SITE.pkg}/border-beam';${decl}\n<\/script>\n\n<BorderBeam${attrs}>\n  <Card>Content</Card>\n</BorderBeam>`;
+	/* Every option that differs from the library's default, as data: each
+	   framework's text below is written from this one object. */
+	const overrides = $derived.by(() => {
+		const o: Props = {};
+		if (s.size !== 'md') o.size = s.size;
+		if (s.colorVariant !== 'colorful') o.colorVariant = s.colorVariant;
+		if (s.theme !== 'dark') o.theme = s.theme;
+		if (s.strength !== 100) o.strength = +num(s.strength / 100);
+		if (s.duration != null) o.duration = +num(s.duration);
+		if (s.glowSize !== 1) o.glowSize = +num(s.glowSize);
+		if (s.brightness != null) o.brightness = +num(s.brightness);
+		if (s.saturation != null) o.saturation = +num(s.saturation);
+		if (s.hueRange !== 30 && !huesLocked && !isPulse) o.hueRange = s.hueRange;
+		if (s.radius != null) o.borderRadius = s.radius;
+		if (s.staticColors && s.colorVariant !== 'mono') o.staticColors = true;
+		if (!s.active) o.active = false;
+		return o;
 	});
 
-	const prompt = $derived(`Add the Border Beam effect from ${SITE.name} to this Svelte 5 app.
+	const pad = (text: string, by: string) =>
+		text
+			.split('\n')
+			.map((line) => (line ? by + line : line))
+			.join('\n');
 
-1. Install the package with the project's package manager, for example: pnpm add ${SITE.pkg}
-2. Import the component: import { BorderBeam } from '${SITE.pkg}/border-beam'
-3. Wrap the element that should glow. BorderBeam renders one wrapper <div>, reads the
+	/* The custom CSS as a template literal, its lines indented by `by`. What
+	   would end the literal early, or be read as an escape, is escaped. */
+	const cssLiteral = (by: string) =>
+		`\`\n${pad(extraCss.replaceAll('\\', '\\\\').replaceAll('`', '\\`').replaceAll('${', '\\${'), `${by}  `)}\n${by}\``;
+
+	/* A tag with one attribute per line, as this playground has always printed it. */
+	const wrap = (name: string, list: string[], inner: string) =>
+		`<${name}${list.length ? `\n  ${list.join('\n  ')}\n` : ''}>\n  ${inner}\n</${name}>`;
+
+	const snippet = $derived(
+		perFramework((fw) => {
+			const css = extraCss ? { css: expr('beamCss') } : {};
+			if (fw === 'vanilla') {
+				/* the wrapper is the page's own, so its variables are set on it directly */
+				const decl = extraCss ? `const beamCss = ${cssLiteral('')};\n\n` : '';
+				const set = vars.map(([k, v]) => `wrapper.style.setProperty('${k}', '${v}');\n`).join('');
+				const opts = options({ ...overrides, ...css });
+				return `${importLine(fw, 'border-beam', ['attachBorderBeam'])}\n\n${decl}// The wrapper is an element of the page, round the one that should glow:\n// <div id="beam"><div class="card">Content</div></div>\nconst wrapper = document.querySelector('#beam');\n${set}${set ? '\n' : ''}const beam = attachBorderBeam(wrapper${opts ? `, ${opts}` : ''});`;
+			}
+			/* React takes inline style as an object, and a custom property's name is a
+			   string key. Its adapter also lets that object win over the spread
+			   pulse-outside measures from the element, where every other form (and
+			   the stage) keeps the measured one: there the two are left out. */
+			const measured = (name: string) => s.size === 'pulse-outside' && (name === '--pulse-glow-sx' || name === '--pulse-glow-sy');
+			const reactVars = vars.filter(([name]) => !measured(name));
+			const style =
+				fw === 'react' ? (reactVars.length ? { style: Object.fromEntries(reactVars) } : {}) : vars.length ? { style: styleAttr } : {};
+			if (fw === 'elements') {
+				/* a stylesheet has quotes and line breaks of its own, so it is set as a property */
+				const set = extraCss
+					? `\n\n  // a stylesheet is easier to set as a property than to quote in an attribute\n  document.querySelector('runeglow-border-beam').css = ${cssLiteral('  ')};`
+					: '';
+				const markup = wrap('runeglow-border-beam', attrs(fw, { ...overrides, ...style }), '<div class="card">Content</div>');
+				return `<script type="module">\n  ${importLine(fw, 'border-beam', [])}${set}\n<\/script>\n\n${markup}`;
+			}
+			const markup = wrap('BorderBeam', attrs(fw, { ...overrides, ...style, ...css }), '<Card>Content</Card>');
+			const line = importLine(fw, 'border-beam', ['BorderBeam']);
+			if (fw === 'svelte') {
+				const decl = extraCss ? `\n\n  const beamCss = ${cssLiteral('  ')};` : '';
+				return `<script>\n  ${line}${decl}\n<\/script>\n\n${markup}`;
+			}
+			if (fw === 'vue') {
+				const decl = extraCss ? `\n\nconst beamCss = ${cssLiteral('')};` : '';
+				return `<script setup>\n${line}${decl}\n<\/script>\n\n<template>\n${pad(markup, '  ')}\n</template>`;
+			}
+			const decl = extraCss ? `const beamCss = ${cssLiteral('')};\n\n` : '';
+			return `${line}\n\n${decl}export function Example() {\n  return (\n${pad(markup, '    ')}\n  );\n}`;
+		})
+	);
+
+	/* the parts of the prompt that are not the same in every framework */
+	const WRAP_STEP = {
+		svelte: `Wrap the element that should glow. BorderBeam renders one wrapper <div>, reads the
    border-radius of its first child and draws the effect around it. Keep my existing
-   markup, classes and event handlers on the wrapped element.
+   markup, classes and event handlers on the wrapped element.`,
+		react: `Wrap the element that should glow. BorderBeam renders one wrapper <div>, reads the
+   border-radius of its first child and draws the effect around it. Keep my existing
+   markup, classes and event handlers on the wrapped element.`,
+		vue: `Wrap the element that should glow. BorderBeam renders one wrapper <div>, reads the
+   border-radius of its first child and draws the effect around it. Keep my existing
+   markup, classes and event handlers on the wrapped element.`,
+		elements: `Put the element that should glow inside <runeglow-border-beam>. The tag is the
+   wrapper (a block element, with no shadow root): it reads the border-radius of its
+   first child and draws the effect around it. Keep my existing markup, classes and
+   event handlers on the wrapped element.`,
+		vanilla: `Call attachBorderBeam on a wrapper element round the element that should glow,
+   adding the wrapper if there is none. It reads the border-radius of the wrapper's
+   first child and draws the effect around it. Keep my existing markup, classes and
+   event handlers on the wrapped element. Call destroy() on what it returns when the
+   wrapper leaves the page.`
+	} as const;
+	const FADE_ENDS = {
+		svelte: 'with onActivate / onDeactivate callbacks',
+		react: 'with onActivate / onDeactivate callbacks',
+		vue: 'with activate / deactivate events (@activate, @deactivate)',
+		elements: 'with activate / deactivate events fired on the tag',
+		vanilla: 'with onActivate / onDeactivate callbacks in the third argument'
+	} as const;
+	const HOOKS = {
+		svelte: `style: CSS hooks --beam-hue-base, --beam-stroke-opacity, --beam-inner-opacity,
+  --beam-bloom-opacity, --beam-spike-mul (line), --pulse-glow-sx, --pulse-glow-sy,
+  --pulse-glow-boost (pulse)`,
+		react: `style: CSS hooks, in an object with each name as a string key: --beam-hue-base,
+  --beam-stroke-opacity, --beam-inner-opacity, --beam-bloom-opacity, --beam-spike-mul
+  (line), --pulse-glow-sx, --pulse-glow-sy, --pulse-glow-boost (pulse)`,
+		vue: `style: CSS hooks --beam-hue-base, --beam-stroke-opacity, --beam-inner-opacity,
+  --beam-bloom-opacity, --beam-spike-mul (line), --pulse-glow-sx, --pulse-glow-sy,
+  --pulse-glow-boost (pulse)`,
+		elements: `style: CSS hooks, written on the tag: --beam-hue-base, --beam-stroke-opacity,
+  --beam-inner-opacity, --beam-bloom-opacity, --beam-spike-mul (line), --pulse-glow-sx,
+  --pulse-glow-sy, --pulse-glow-boost (pulse)`,
+		vanilla: `CSS hooks, set on the wrapper element: --beam-hue-base, --beam-stroke-opacity,
+  --beam-inner-opacity, --beam-bloom-opacity, --beam-spike-mul (line), --pulse-glow-sx,
+  --pulse-glow-sy, --pulse-glow-boost (pulse)`
+	} as const;
+
+	const prompt = $derived(
+		perFramework(
+			(fw, info) => `Add the Border Beam effect from ${SITE.name} to this ${info.app}.
+
+1. Install the package with the project's package manager, for example: pnpm add ${info.pkg}
+2. ${importStep(fw, 'BorderBeam')}
+3. ${WRAP_STEP[fw]}
 4. Use exactly this configuration:
 
-${snippet}
+${snippet[fw]}
 
-Parameter vocabulary, for later changes:
+Parameter vocabulary, for later changes${fw === 'elements' ? ' (as attributes, camelCase names become kebab-case:\ncolorVariant is color-variant; a boolean is on when present, such as static-colors, and\noff as active="false")' : ''}:
 - size: "md" full border (default) | "sm" small buttons | "line" bottom edge only |
   "pulse-inner" breathing glow inside the border | "pulse-outside" halo that blooms outward
 - colorVariant: "colorful" | "mono" | "ocean" | "sunset" | "forest" | "candy" | "ice" | "gold"
 - theme: "dark" | "light" | "auto" (follows prefers-color-scheme); match it to the background
 - strength: 0 to 1, opacity of the effect layers only
 - duration: seconds per cycle (defaults: 1.96 rotate, 3.1 line, 2.3 pulse)
-- active: boolean; fades in and out, with onActivate / onDeactivate callbacks
+- active: boolean; fades in and out, ${FADE_ENDS[fw]}
 - borderRadius: px; omit it to auto-detect from the first child
 - brightness, saturation, glowSize: multipliers on the glow
 - hueRange: degrees of hue drift on the rotate types (pulse types rotate the full
   circle); staticColors turns the drift off
-- style: CSS hooks --beam-hue-base, --beam-stroke-opacity, --beam-inner-opacity,
-  --beam-bloom-opacity, --beam-spike-mul (line), --pulse-glow-sx, --pulse-glow-sy,
-  --pulse-glow-boost (pulse)
+- ${HOOKS[fw]}
 - css: extra CSS appended to the generated sheet; write {id} for the instance id
 
 Notes:
 - "pulse-outside" renders behind the content, so the wrapped element needs an opaque
   background, its own 1px border, and room around it for the halo.
-- The effect layers are decorative and ignore pointer events.`);
+- The effect layers are decorative and ignore pointer events.${fw === 'vanilla' ? '\n- update(options) on what attachBorderBeam returns replaces every option, so pass the\n  whole set each time.' : ''}`
+		)
+	);
 </script>
 
 <PlaygroundShell

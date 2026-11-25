@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { WaveType } from 'runeglow/distortion-waves';
+	import type { WaveType } from '@runeglow/svelte/distortion-waves';
 
 	/* Three small interfaces for the wave to cross, one per type:
 	   - transfer: a payment review that becomes its receipt (vertical)
@@ -10,7 +10,7 @@
 </script>
 
 <script lang="ts">
-	import { DistortionWave, type DistortionWaveProps } from 'runeglow/distortion-waves';
+	import { DistortionWave, type DistortionWaveProps } from '@runeglow/svelte/distortion-waves';
 
 	interface Props {
 		kind: SceneKind;

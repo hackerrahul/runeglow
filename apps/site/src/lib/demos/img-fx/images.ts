@@ -1,4 +1,4 @@
-import type { PresetMode } from 'runeglow/img-fx';
+import type { PresetMode } from '@runeglow/svelte/img-fx';
 
 /* The pool the demos reveal from. */
 export const IMAGE_POOL = ['/images/gen-1.jpg', '/images/gen-2.jpg', '/images/gen-3.jpg', '/images/melt-a.jpg', '/images/melt-b.jpg'];

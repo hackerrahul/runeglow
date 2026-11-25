@@ -1,0 +1,13 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"declaration": true,
+		"outDir": "dist",
+		"rootDir": "src",
+		// The built files import the core by its package name, so its types
+		// come from the built core, not from its source.
+		"paths": {}
+	},
+	"include": ["src"]
+}

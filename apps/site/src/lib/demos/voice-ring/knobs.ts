@@ -1,4 +1,4 @@
-import type { VoiceOrbType } from 'runeglow/voice-ring';
+import type { VoiceOrbType } from '@runeglow/svelte/voice-ring';
 
 /* What the playground calls each type: the two rings by VoiceRing's names,
    the five ink orbs by VoiceOrb's. */

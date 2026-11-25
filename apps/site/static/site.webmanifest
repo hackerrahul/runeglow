@@ -1,7 +1,7 @@
 {
 	"name": "Runeglow",
 	"short_name": "Runeglow",
-	"description": "UI effects for Svelte",
+	"description": "UI effects for Svelte, React, Vue and plain HTML",
 	"start_url": "/",
 	"display": "browser",
 	"background_color": "#121212",

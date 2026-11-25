@@ -4,52 +4,26 @@
 	import InstallTabs from '#lib/components/InstallTabs.svelte';
 	import LibIcon from '#lib/components/LibIcon.svelte';
 	import PropsTable, { type PropRow } from '#lib/components/PropsTable.svelte';
+	import type { Framework } from '#lib/code.ts';
 	import BendDemo from '#lib/demos/liquid-gooey/BendDemo.svelte';
 	import MorphDemo from '#lib/demos/liquid-gooey/MorphDemo.svelte';
 	import MoveDemo from '#lib/demos/liquid-gooey/MoveDemo.svelte';
 	import Playground from '#lib/demos/liquid-gooey/Playground.svelte';
+	import { NAMES, driven, effectIs, importOnly, named, observed, quickStart } from '#lib/demos/liquid-gooey/code.ts';
 	import { DEFAULT_GROUP } from '#lib/demos/liquid-gooey/shared.ts';
-	import { SITE } from '#lib/site.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 
-	const quickStart = `<script>
-  import { Liquid } from '${SITE.pkg}/liquid-gooey';
-<\/script>
+	const fw = $derived(framework.id);
+	const names = $derived(NAMES[fw]);
 
-<Liquid fill="#202020">
-  <Liquid.Item><button class="round">A</button></Liquid.Item>
-  <Liquid.Item><button class="round">B</button></Liquid.Item>
-</Liquid>
-
-<style>
-  /* The liquid is the surface: keep your own elements transparent. */
-  .round { background: transparent; border: 0; border-radius: 50%; }
-</style>`;
-
-	const driven = `<script>
-  import { Liquid } from '${SITE.pkg}/liquid-gooey';
-
-  let open = $state(false);
-<\/script>
-
-<Liquid fill="#202020">
-  <!-- The library moves the element and its liquid together. -->
-  <Liquid.Item y={open ? -64 : 0} transition="bouncy">
-    <button class="round">…</button>
-  </Liquid.Item>
-  <Liquid.Item>
-    <button class="round" onclick={() => (open = !open)}>+</button>
-  </Liquid.Item>
-</Liquid>`;
-
-	const observed = `<!-- Or move the element yourself; the liquid follows what it measures. -->
-<Liquid fill="#525252">
-  <Liquid.Item effect="move" move={{ stretch: 0.6, trail: 0.35 }}>
-    <div class="thumb" style:transform="translateX({x}px)"></div>
-  </Liquid.Item>
-</Liquid>`;
-
-	const named = `// Liquid.Item is also exported on its own.
-import { Liquid, LiquidItem } from '${SITE.pkg}/liquid-gooey';`;
+	/* what the two tables are headed with: props, attributes, or the options of a call */
+	const HEADINGS: Record<Framework, [group: string, item: string]> = {
+		svelte: ['Liquid props', 'Liquid.Item props'],
+		react: ['Liquid props', 'Liquid.Item props'],
+		vue: ['Liquid props', 'LiquidItem props'],
+		elements: ['<runeglow-liquid> attributes', '<runeglow-liquid-item> attributes'],
+		vanilla: ['mountLiquid options', 'item options']
+	};
 
 	const groupProps: PropRow[] = [
 		{ name: 'blur', type: 'number', default: '6', description: 'Goo blur in px: how far apart pieces start bridging.' },
@@ -59,10 +33,36 @@ import { Liquid, LiquidItem } from '${SITE.pkg}/liquid-gooey';`;
 		{ name: 'waviness', type: 'number', default: '0', description: 'Max px the liquid edge undulates. 0 keeps it calm.' },
 		{ name: 'wavinessFreq', type: 'number', default: '0.018', description: 'Noise frequency of the undulation. Lower is longer, lazier waves.' },
 		{ name: 'filterPadding', type: 'number', default: '24', description: 'Extra room in px for pieces that travel outside the group box.' },
-		{ name: 'filter', type: 'string', description: 'Raw SVG filter primitives that replace the goo chain.' },
-		{ name: 'ref', type: 'HTMLDivElement | null', description: 'The group element. Bindable with bind:ref.' },
-		{ name: '...rest', type: 'HTMLAttributes<HTMLDivElement>', description: 'class, style and other attributes go to the group element.' }
+		{ name: 'filter', type: 'string', description: 'Raw SVG filter primitives that replace the goo chain.' }
 	];
+
+	/* how the group's element is reached and what else it takes, which each framework does its own way */
+	const groupReach: Record<Framework, PropRow[]> = {
+		svelte: [
+			{ name: 'ref', type: 'HTMLDivElement | null', description: 'The group element. Bindable with bind:ref.' },
+			{ name: '...rest', type: 'HTMLAttributes<HTMLDivElement>', description: 'class, style and other attributes go to the group element.' }
+		],
+		react: [
+			{ name: 'ref', type: 'Ref<HTMLDivElement>', description: 'Reaches the group element.' },
+			{ name: '...rest', type: 'HTMLAttributes<HTMLDivElement>', description: 'className, style and other attributes go to the group element.' }
+		],
+		vue: [
+			{ name: 'template ref', type: '{ element, group }', description: 'A ref on the component gives the group element as element, and group, the object its pieces share.' },
+			{ name: 'attributes', type: 'fallthrough', description: 'class, style and other attributes fall through to the group element.' }
+		],
+		elements: [
+			{ name: 'attributes', type: 'kebab-case', description: 'The element is the group. Every option above is an attribute: filterPadding in JavaScript is filter-padding in HTML.' },
+			{ name: 'properties', type: 'camelCase', description: 'Every option but blur is also a property. blur is an attribute only, because every element already has a blur() method: change it with setAttribute.' }
+		],
+		vanilla: [
+			{ name: 'id', type: 'string', default: 'made for you', description: 'A name for the filter, unique in the page. Read once.' },
+			{
+				name: 'returns',
+				type: '{ element, group, update, item, destroy }',
+				description: 'The element you passed and the object its pieces share; update(options) changes some options and keeps the rest; item(element, options) makes an element inside the group one of its pieces; destroy() takes the liquid out again.'
+			}
+		]
+	};
 
 	const itemProps: PropRow[] = [
 		{ name: 'effect', type: "'morph' | 'move' | 'bend' | 'melt'", default: "'morph'", description: 'morph merges pieces; move trails a moving element; bend bows the body with velocity; melt runs two images into each other.' },
@@ -75,9 +75,33 @@ import { Liquid, LiquidItem } from '${SITE.pkg}/liquid-gooey';`;
 		{ name: 'move', type: 'MoveTuning', description: '{ springiness, wobble, stretch, trail }, each 0 to 1.' },
 		{ name: 'bend', type: 'BendTuning', description: '{ vertical, horizontal }, each 0 to 1.' },
 		{ name: 'melt', type: 'ImageMeltOptions & { src? }', description: '{ blur, contrast, reach, fade, warp, mix, mixBlur, gravity, waviness }. The image is found from an <img> inside, or given as src.' },
-		{ name: 'radius', type: 'number | [tl, tr, br, bl]', default: 'measured', description: 'Overrides the border radius read from the element.' },
-		{ name: 'class, style', type: 'string', description: 'Applied to the item’s wrapper.' }
+		{ name: 'radius', type: 'number | [tl, tr, br, bl]', default: 'measured', description: 'Overrides the border radius read from the element.' }
 	];
+
+	/* what a piece takes besides its options: a wrapper's class in a framework, and no wrapper at all outside one */
+	const itemReach: Record<Framework, PropRow[]> = {
+		svelte: [{ name: 'class, style', type: 'string', description: 'Applied to the item’s wrapper.' }],
+		react: [{ name: 'className, style', type: 'string, CSSProperties', description: 'Applied to the item’s wrapper.' }],
+		vue: [
+			{ name: 'class, style', type: 'fallthrough', description: 'Applied to the item’s wrapper.' },
+			{ name: 'template ref', type: '{ element }', description: 'A ref on the component gives the item’s wrapper as element.' }
+		],
+		elements: [
+			{ name: 'children', type: 'one element', description: 'The element’s first child element is the piece. The tag must be inside a <runeglow-liquid>.' },
+			{
+				name: 'attributes',
+				type: 'JSON for a record',
+				description: 'Every option is an attribute and a property. A record is JSON in an attribute: morph=\'{"shape":true}\'. transition also takes a preset’s name as it is, and dissolve with no value means true.'
+			}
+		],
+		vanilla: [
+			{
+				name: 'returns',
+				type: '{ element, update, destroy }',
+				description: 'The element you passed, which is the piece itself: there is no wrapper, and x, y and scale move it through its inline transform. update(options) changes some options and keeps the rest; destroy() takes the piece out of the liquid.'
+			}
+		]
+	};
 </script>
 
 <DocsShell>
@@ -111,35 +135,41 @@ import { Liquid, LiquidItem } from '${SITE.pkg}/liquid-gooey';`;
 		<h2>Install</h2>
 		<div class="stack">
 			<InstallTabs registry="liquid-gooey" />
-			<CodeBlock code={`import { Liquid } from '${SITE.pkg}/liquid-gooey';`} copyLabel="Copy import" />
+			<CodeBlock code={importOnly} copyLabel="Copy import" />
 		</div>
 	</section>
 
 	<section id="usage">
 		<h2>Usage</h2>
 		<p class="text">
-			A <code class="icode">Liquid</code> group draws one merged surface behind its children. Wrap each
-			piece in <code class="icode">Liquid.Item</code> and it joins that surface.
+			{#if fw === 'vanilla'}
+				<code class="icode">mountLiquid</code> makes an element a liquid group, which draws one merged
+				surface behind its children. The group’s <code class="icode">item</code> makes an element inside
+				it one of the pieces, as it stands: there is no wrapper.
+			{:else}
+				A <code class="icode">{names.group}</code> group draws one merged surface behind its children. Wrap
+				each piece in <code class="icode">{names.item}</code> and it joins that surface.
+			{/if}
 		</p>
 		<CodeBlock code={quickStart} />
 		<p class="text">Give an item a position and the library animates the element and its liquid together.</p>
 		<CodeBlock code={driven} />
 		<p class="text">
-			For anything you move yourself, such as a drag or a Svelte spring, pick an effect and the liquid
-			follows the element’s real position.
+			For anything you move yourself, such as a drag or {fw === 'svelte' ? 'a Svelte spring' : 'a spring of your own'},
+			pick an effect and the liquid follows the element’s real position.
 		</p>
 		<CodeBlock code={observed} />
 		<CodeBlock code={named} lang="text" />
 	</section>
 
 	<section id="group">
-		<h2>Liquid props</h2>
-		<PropsTable rows={groupProps} />
+		<h2>{HEADINGS[fw][0]}</h2>
+		<PropsTable rows={[...groupProps, ...groupReach[fw]]} nameLabel={fw === 'vanilla' ? 'Option' : fw === 'elements' ? 'Attribute' : 'Prop'} />
 	</section>
 
 	<section id="item">
-		<h2>Liquid.Item props</h2>
-		<PropsTable rows={itemProps} />
+		<h2>{HEADINGS[fw][1]}</h2>
+		<PropsTable rows={[...itemProps, ...itemReach[fw]]} nameLabel={fw === 'vanilla' ? 'Option' : fw === 'elements' ? 'Attribute' : 'Prop'} />
 	</section>
 
 	<section id="notes">
@@ -154,15 +184,22 @@ import { Liquid, LiquidItem } from '${SITE.pkg}/liquid-gooey';`;
 				merges.
 			</li>
 			<li>
-				<code class="icode">effect="melt"</code> works on the first two melt items in a group, and
+				<code class="icode">{effectIs(fw, 'melt')}</code> works on the first two melt items in a group, and
 				each needs an image.
 			</li>
 			<li>
-				<code class="icode">effect="bend"</code> publishes the live bend as
+				<code class="icode">{effectIs(fw, 'bend')}</code> publishes the live bend as
 				<code class="icode">--lg-bend-x</code>, <code class="icode">--lg-bend-y</code> (px) and
 				<code class="icode">--lg-bend-xn</code>, <code class="icode">--lg-bend-yn</code> (unitless) on
-				the item, so content can lean with the surface.
+				the piece’s own element, so content can lean with the surface.
 			</li>
+			{#if fw === 'vanilla'}
+				<li>
+					<code class="icode">mountLiquid</code> makes the element
+					<code class="icode">position: relative</code> and an isolated stacking context, unless its own
+					inline style says otherwise, and puts two SVG layers in it ahead of your content.
+				</li>
+			{/if}
 			<li>It runs on SVG filters and works in Chrome, Firefox and Safari.</li>
 		</ul>
 	</section>

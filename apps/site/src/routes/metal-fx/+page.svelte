@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MetalBadge, MetalFx, MetalText, useMetalTextReflection } from 'runeglow/metal-fx';
+	import { MetalBadge, MetalFx, MetalText, useMetalTextReflection } from '@runeglow/svelte/metal-fx';
 	import CodeBlock from '#lib/components/CodeBlock.svelte';
 	import DocsShell from '#lib/components/DocsShell.svelte';
 	import InstallTabs from '#lib/components/InstallTabs.svelte';
@@ -8,61 +8,31 @@
 	import Composer from '#lib/demos/metal-fx/Composer.svelte';
 	import Playground from '#lib/demos/metal-fx/Playground.svelte';
 	import '#lib/demos/metal-fx/demo.css';
-	import { SITE } from '#lib/site.ts';
+	import { importOnly, quickStart, reflect, text, tune } from '#lib/demos/metal-fx/code.ts';
+	import type { Framework } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 
 	let plan = $state<HTMLSpanElement | null>(null);
 	useMetalTextReflection(() => plan);
 
-	const quickStart = `<script>
-  import { MetalFx } from '${SITE.pkg}/metal-fx';
-<\/script>
+	/* what each framework calls the three, for the headings and for "as on …" */
+	const NAMES: Record<Framework, [fx: string, text: string, badge: string]> = {
+		svelte: ['MetalFx', 'MetalText', 'MetalBadge'],
+		react: ['MetalFx', 'MetalText', 'MetalBadge'],
+		vue: ['MetalFx', 'MetalText', 'MetalBadge'],
+		elements: ['<runeglow-metal-fx>', '<runeglow-metal-text>', '<runeglow-metal-badge>'],
+		vanilla: ['mountMetalFx', 'mountMetalText', 'mountMetalBadge']
+	};
+	const [fxName, textName, badgeName] = $derived(NAMES[framework.id]);
 
-<MetalFx>
-  <button class="upgrade">Upgrade to Pro</button>
-</MetalFx>
-
-<MetalFx variant="circle" preset="gold">
-  <button aria-label="Send"><ArrowUp /></button>
-</MetalFx>`;
-
-	const reflect = `<script>
-  import { MetalFx, useMetalBend } from '${SITE.pkg}/metal-fx';
-
-  let ring = $state(null);
-  let chip = $state(null);
-  useMetalBend(() => ring); // the ring dents under the cursor
-<\/script>
-
-<button bind:this={chip}>Tools</button>
-
-<MetalFx bind:ref={ring} variant="circle" innerShadow reflectionTargets={[chip]}>
-  <button aria-label="Send"><ArrowUp /></button>
-</MetalFx>`;
-
-	const text = `<script>
-  import { MetalText, MetalBadge, useMetalTextReflection } from '${SITE.pkg}/metal-fx';
-
-  let plan = $state(null);
-  useMetalTextReflection(() => plan); // "Plan" catches the metal on its letters
-<\/script>
-
-<span bind:this={plan}>Plan</span>
-<MetalText
-  text="Pro"
-  font="500 24px/1.2 Inter, sans-serif"
-  color="#e2e2e2"
-  reflectionTargets={[{ el: plan, strength: 0.64 }]}
-/>
-
-<MetalBadge text="New" />`;
-
-	const tune = `<script>
-  import { setGlowConfig, setBendConfig, setSharedPresetMode, PRESETS } from '${SITE.pkg}/metal-fx';
-
-  setGlowConfig({ haloOpMul: 1.2 });          // a calmer halo
-  setBendConfig({ strength: 1.2, reach: 48 }); // a deeper dent
-  setSharedPresetMode({ ...PRESETS.silver.modes.dark, repetition: 3, distortion: 0.2 });
-<\/script>`;
+	/* what makes the ring dent under the cursor: a hook, an attribute, or a plain function */
+	const BEND: Record<Framework, string> = {
+		svelte: 'useMetalBend',
+		react: 'useMetalBend',
+		vue: 'useMetalBend',
+		elements: 'bend',
+		vanilla: 'attachMetalBend'
+	};
 
 	const props: PropRow[] = [
 		{ name: 'variant', type: "'button' | 'circle'", default: "'button'", description: 'A pill ring 1px wide, or a compact circle with a 2px ring.' },
@@ -72,29 +42,88 @@
 		{ name: 'glowGain', type: 'number', default: '1', description: 'Multiplier on the glow only, on top of strength.' },
 		{ name: 'paused', type: 'boolean', default: 'false', description: 'Freezes this instance on its current frame.' },
 		{ name: 'disableGlow', type: 'boolean', default: 'false', description: 'Leaves the wandering halo out. The ring still renders.' },
-		{ name: 'innerShadow', type: 'boolean | { offsetY?, blur?, alpha?, color? }', description: 'A hairline of light along the top inside edge of the ring.' },
-		{ name: 'reflectionTargets', type: 'Array<HTMLElement | { el, strength? }>', description: 'Neighbouring elements that catch a reflection of the ring. Dark theme only.' },
+		{ name: 'innerShadow', type: 'boolean | { offsetY?, blur?, alpha?, color? }', description: 'A hairline of light along the top inside edge of the ring.' }
+	];
+
+	/* the neighbours that catch the light are elements, and each framework hands elements about its own way */
+	const targets: Record<Framework, PropRow> = {
+		svelte: { name: 'reflectionTargets', type: 'Array<HTMLElement | { el, strength? }>', description: 'Neighbouring elements that catch a reflection of the ring. Dark theme only.' },
+		react: { name: 'reflectionTargets', type: 'Array<HTMLElement | RefObject | { el, strength? }>', description: 'Neighbouring elements that catch a reflection of the ring, each as the element or a ref to it. Dark theme only.' },
+		vue: { name: 'reflectionTargets', type: 'Array<HTMLElement | Ref | { el, strength? }>', description: 'Neighbouring elements that catch a reflection of the ring, each as the element or a template ref to it. Dark theme only.' },
+		elements: { name: 'reflectionTargets', type: 'CSS selector', description: 'The neighbouring elements that catch a reflection of the ring, named by a selector: reflection-targets="#tools". One with data-metal-fx-strength="0.4" catches that share. As a property it also takes a list of elements. Dark theme only.' },
+		vanilla: { name: 'reflectionTargets', type: 'Array<HTMLElement | { el, strength? }>', description: 'Neighbouring elements that catch a reflection of the ring. Dark theme only.' }
+	};
+
+	const sizing: PropRow[] = [
 		{ name: 'borderRadius', type: 'number', default: 'auto', description: 'Corner radius in px. Omit it to read the wrapped element’s.' },
 		{ name: 'shaderScale', type: 'number', default: '1.6 / 1.3', description: 'Zoom of the metal’s pattern.' },
 		{ name: 'ringCssPx', type: 'number', default: '1 / 2', description: 'Ring thickness in px.' },
 		{ name: 'scale', type: 'number', default: '1', description: 'Multiplies every pixel constant, for an interface drawn larger than 1×.' },
-		{ name: 'normalizeHostStyles', type: 'boolean', default: 'true', description: 'Clears the wrapped element’s own border, outline and shadow so they don’t fight the ring.' },
-		{ name: 'mask', type: '(ctx, width, height, dpr) => void', description: 'Paint your own alpha mask: the metal shows only where it paints. MetalText and MetalBadge are built on it.' },
-		{ name: 'glowMode', type: "'mask' | 'ring'", default: "'mask'", description: 'With a mask, whether the glow sits inside the mask or along the element’s edge.' },
-		{ name: 'ref', type: 'HTMLDivElement | null', description: 'The wrapper element. Bindable with bind:ref.' },
-		{ name: '...rest', type: 'HTMLAttributes<HTMLDivElement>', description: 'class, style and other attributes are forwarded to the wrapper.' }
+		{ name: 'normalizeHostStyles', type: 'boolean', default: 'true', description: 'Clears the wrapped element’s own border, outline and shadow so they don’t fight the ring.' }
 	];
 
-	const textProps: PropRow[] = [
+	const mask = $derived<PropRow>({
+		name: 'mask',
+		type: '(ctx, width, height, dpr) => void',
+		description: `Paint your own alpha mask: the metal shows only where it paints. ${textName} and ${badgeName} are built on it.${framework.id === 'elements' ? ' A property only: an attribute cannot hold a function.' : ''}`
+	});
+	const glowMode: PropRow = { name: 'glowMode', type: "'mask' | 'ring'", default: "'mask'", description: 'With a mask, whether the glow sits inside the mask or along the element’s edge.' };
+
+	/* how the wrapper itself is reached, which each framework does its own way */
+	const reach: Record<Framework, PropRow[]> = {
+		svelte: [
+			{ name: 'ref', type: 'HTMLDivElement | null', description: 'The wrapper element. Bindable with bind:ref.' },
+			{ name: '...rest', type: 'HTMLAttributes<HTMLDivElement>', description: 'class, style and other attributes are forwarded to the wrapper.' }
+		],
+		react: [
+			{ name: 'ref', type: 'Ref<HTMLDivElement>', description: 'Reaches the wrapper element.' },
+			{ name: '...rest', type: 'HTMLAttributes<HTMLDivElement>', description: 'className, style, onClick and other attributes are forwarded to the wrapper.' }
+		],
+		vue: [
+			{ name: 'template ref', type: '{ element }', description: 'A ref on the component gives the wrapper as element.' },
+			{ name: 'attributes', type: 'fallthrough', description: 'class, style, @click and other attributes fall through to the wrapper.' }
+		],
+		elements: [
+			{ name: 'bend', type: 'boolean', default: 'false', description: 'The ring dents like liquid under the cursor.' },
+			{ name: 'refresh()', type: 'method', description: 'Looks the reflection-targets selector up again, after the page around the element has changed.' },
+			{ name: 'properties', type: 'camelCase', description: 'Every option is an attribute and a property: shaderScale in JavaScript is shader-scale in HTML. An object is written as JSON, and inner-shadow may be a bare attribute.' },
+			{ name: '::part(root)', type: 'CSS', description: 'The wrapper is in the element’s shadow root. Style it from the page as runeglow-metal-fx::part(root).' }
+		],
+		vanilla: [
+			{ name: 'class', type: 'string', description: 'A class for the wrapper.' },
+			{ name: 'returns', type: '{ element, update, destroy }', description: 'The wrapper, which takes the element’s place in the page with the element inside it; update(options) changes some options and keeps the rest; destroy() stops the ring and unwraps the element.' }
+		]
+	};
+
+	/* the options the other two share with the ring, and how their wrapper is reached */
+	const shared = (own: string): Record<Framework, PropRow[]> => {
+		const names = `strength, theme, ${own}paused, reflectionTargets`;
+		const made = (what: string): PropRow => ({ name: 'returns', type: '{ element, update, destroy }', description: `The wrapper, made inside the element it is given; update(options) changes some options and keeps the rest; destroy() takes the ${what} out of the page.` });
+		return {
+			svelte: [{ name: `${names}, ref`, type: '', description: 'As on MetalFx.' }],
+			react: [{ name: `${names}, ref`, type: '', description: 'As on MetalFx.' }],
+			vue: [{ name: names, type: '', description: 'As on MetalFx. A template ref gives the wrapper as element here too.' }],
+			elements: [{ name: names, type: '', description: 'As on <runeglow-metal-fx>, as are the properties and ::part(root).' }],
+			vanilla: [{ name: names, type: '', description: 'As on mountMetalFx.' }, made(own ? 'badge' : 'text')]
+		};
+	};
+	const textReach = shared('');
+	const badgeReach = shared('shaderScale, ');
+
+	const textProps = $derived<PropRow[]>([
 		{ name: 'text', type: 'string', description: 'The text. It is drawn into the metal’s mask as well as the page.' },
 		{ name: 'font', type: 'string', description: 'CSS font shorthand, such as 500 24px/1.2 Inter, sans-serif.' },
 		{ name: 'color', type: 'string', description: 'The base text colour. The metal composites over it.' },
 		{ name: 'metalOpacity', type: 'number', default: '0.62', description: 'How much metal shows over the base colour.' },
 		{ name: 'shaderScale', type: 'number', default: '2.8', description: 'Zoom of the metal inside the letters.' },
-		{ name: 'innerShadow', type: '{ offsetY, blur, alpha } | null', default: '{ 1, 0.5, 0.9 }', description: 'Light along the top inside edge of each letter. null turns it off.' },
-		{ name: 'glow, glowGain', type: 'boolean, number', default: 'false, 2.5', description: 'A halo clipped to the letters.' },
-		{ name: 'strength, theme, paused, reflectionTargets, ref', type: '', description: 'As on MetalFx.' }
-	];
+		{
+			name: 'innerShadow',
+			type: '{ offsetY, blur, alpha } | null',
+			default: '{ 1, 0.5, 0.9 }',
+			description: `Light along the top inside edge of each letter. ${framework.id === 'elements' ? 'The attribute inner-shadow="null" turns it off.' : 'null turns it off.'}`
+		},
+		{ name: 'glow, glowGain', type: 'boolean, number', default: 'false, 2.5', description: 'A halo clipped to the letters.' }
+	]);
 
 	const badgeProps: PropRow[] = [
 		{ name: 'text', type: 'string', default: "'New'", description: 'The label.' },
@@ -102,14 +131,36 @@
 		{ name: 'metalOpacity', type: 'number', default: '0.8', description: 'How much metal shows over the white fill.' },
 		{ name: 'core', type: '{ r, blur, a, size }', description: 'The clean white core under the label: solid radius, ramp width, opacity, ellipse size.' },
 		{ name: 'gradient, glow', type: 'number', default: '0, 0.41', description: 'A top-to-bottom white wash, and the soft inner glow.' },
-		{ name: 'textColor', type: 'string', default: "'#323232'", description: 'Colour of the label.' },
-		{ name: 'strength, theme, shaderScale, paused, reflectionTargets, ref', type: '', description: 'As on MetalFx.' }
+		{ name: 'textColor', type: 'string', default: "'#323232'", description: 'Colour of the label.' }
 	];
 
+	/* the bend and the text reflection: hooks in a framework, plain functions outside one */
+	const extras: Record<Framework, PropRow[]> = {
+		svelte: [
+			{ name: 'useMetalBend(() => el, getConfig?)', type: '', description: 'The ring dents like liquid under the cursor. Call it while a component is set up, with a function returning the MetalFx element.' },
+			{ name: 'useMetalTextReflection(() => el)', type: '', description: 'A text element that is a reflection target catches the light on its letters only.' },
+			{ name: 'attachMetalBend(el), attachMetalTextReflection(el)', type: '', description: 'The same two as plain functions that return a cleanup, for use outside a component.' }
+		],
+		react: [
+			{ name: 'useMetalBend(ref, getConfig?)', type: '', description: 'The ring dents like liquid under the cursor. A hook: give it the ref that is on the MetalFx, or the wrapper element.' },
+			{ name: 'useMetalTextReflection(ref)', type: '', description: 'A text element that is a reflection target catches the light on its letters only. Give it a ref to the element, or the element.' },
+			{ name: 'attachMetalBend(el), attachMetalTextReflection(el)', type: '', description: 'The same two as plain functions that return a cleanup, for use outside a component.' }
+		],
+		vue: [
+			{ name: 'useMetalBend(ref, getConfig?)', type: '', description: 'The ring dents like liquid under the cursor. Call it in setup with the template ref that is on the MetalFx, the wrapper element, or a function returning either.' },
+			{ name: 'useMetalTextReflection(ref)', type: '', description: 'A text element that is a reflection target catches the light on its letters only. Give it a template ref on the element.' },
+			{ name: 'attachMetalBend(el), attachMetalTextReflection(el)', type: '', description: 'The same two as plain functions that return a cleanup, for use outside a component.' }
+		],
+		elements: [
+			{ name: 'attachMetalTextReflection(el)', type: '', description: 'A text element that is a reflection target catches the light on its letters only. It returns a cleanup.' }
+		],
+		vanilla: [
+			{ name: 'attachMetalBend(el, getConfig?)', type: '', description: 'The ring dents like liquid under the cursor. Give it the wrapper, which mountMetalFx returns as element; it returns a cleanup.' },
+			{ name: 'attachMetalTextReflection(el)', type: '', description: 'A text element that is a reflection target catches the light on its letters only. It returns a cleanup.' }
+		]
+	};
+
 	const fns: PropRow[] = [
-		{ name: 'useMetalBend(() => el, getConfig?)', type: '', description: 'The ring dents like liquid under the cursor. Call it while a component is set up, with a function returning the MetalFx element.' },
-		{ name: 'useMetalTextReflection(() => el)', type: '', description: 'A text element that is a reflection target catches the light on its letters only.' },
-		{ name: 'attachMetalBend(el), attachMetalTextReflection(el)', type: '', description: 'The same two as plain functions that return a cleanup, for use outside a component.' },
 		{ name: 'setGlowConfig, resetGlowConfig', type: '', description: 'Tune the halo: intensity, fades, sizes.' },
 		{ name: 'setBendConfig, resetBendConfig', type: '', description: 'Tune the cursor bend: strength, reach, the largest dent, the springs.' },
 		{ name: 'setCursorSprite, setCursorLightConfig', type: '', description: 'Let the metal light the pointer. It needs an image of the pointer to draw in its place.' },
@@ -165,7 +216,7 @@
 		<h2>Install</h2>
 		<div class="stack">
 			<InstallTabs registry="metal-fx" />
-			<CodeBlock code={`import { MetalFx, MetalText, MetalBadge } from '${SITE.pkg}/metal-fx';`} copyLabel="Copy import" />
+			<CodeBlock code={importOnly} copyLabel="Copy import" />
 		</div>
 	</section>
 
@@ -177,8 +228,13 @@
 		</p>
 		<CodeBlock code={quickStart} />
 		<p class="text">
-			Hand it neighbouring elements and they catch a reflection of the ring.
-			<code class="icode">useMetalBend</code> makes the ring dent under the cursor.
+			{#if framework.id === 'elements'}
+				Name neighbouring elements with a selector and they catch a reflection of the ring. The
+				<code class="icode">bend</code> attribute makes the ring dent under the cursor.
+			{:else}
+				Hand it neighbouring elements and they catch a reflection of the ring.
+				<code class="icode">{BEND[framework.id]}</code> makes the ring dent under the cursor.
+			{/if}
 		</p>
 		<CodeBlock code={reflect} />
 		<p class="text">Metal can fill text, or dress a badge.</p>
@@ -191,23 +247,23 @@
 	</section>
 
 	<section id="props">
-		<h2>MetalFx</h2>
-		<PropsTable rows={props} />
+		<h2>{fxName}</h2>
+		<PropsTable rows={[...props, targets[framework.id], ...sizing, mask, glowMode, ...reach[framework.id]]} />
 	</section>
 
 	<section id="text">
-		<h2>MetalText</h2>
-		<PropsTable rows={textProps} />
+		<h2>{textName}</h2>
+		<PropsTable rows={[...textProps, ...textReach[framework.id]]} />
 	</section>
 
 	<section id="badge">
-		<h2>MetalBadge</h2>
-		<PropsTable rows={badgeProps} />
+		<h2>{badgeName}</h2>
+		<PropsTable rows={[...badgeProps, ...badgeReach[framework.id]]} />
 	</section>
 
 	<section id="functions">
 		<h2>Functions</h2>
-		<PropsTable rows={fns} nameLabel="Function" />
+		<PropsTable rows={[...extras[framework.id], ...fns]} nameLabel="Function" />
 	</section>
 
 	<section id="notes">

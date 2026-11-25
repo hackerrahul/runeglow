@@ -1,9 +1,9 @@
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const SVELTE =
-	/(<!--[\s\S]*?-->|\/\/[^\n]*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(<\/?)([A-Za-z][\w.-]*)|\b(import|from|const|let|export|default|true|false|null|undefined)\b|(-?\b\d+(?:\.\d+)?\b)|([A-Za-z_][\w-]*)(?==)|([{}>]|\/>)/g;
+	/(<!--[\s\S]*?-->|\/\/[^\n]*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(<\/?)([A-Za-z][\w.-]*)|\b(import|from|const|let|export|default|function|return|new|await|async|if|else|for|of|true|false|null|undefined)\b|(-?\b\d+(?:\.\d+)?\b)|([A-Za-z_][\w-]*)(?==)|([{}>]|\/>)/g;
 
-/** A small tokenizer for the Svelte snippets the playgrounds print. */
+/** A small tokenizer for the snippets the docs print: Svelte, and near enough for JSX, Vue, HTML and plain JavaScript. */
 export function highlightSvelte(code: string): string {
 	let out = '';
 	let last = 0;

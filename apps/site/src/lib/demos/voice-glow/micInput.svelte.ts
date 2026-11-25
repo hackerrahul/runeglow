@@ -1,4 +1,4 @@
-import { getAudioContext, useMicrophone } from 'runeglow/voice-glow';
+import { getAudioContext, useMicrophone } from '@runeglow/svelte/voice-glow';
 
 /* The playground's microphone. On top of `useMicrophone` it adds what a demo
    needs when the browser opens the wrong device: a list of inputs to pick

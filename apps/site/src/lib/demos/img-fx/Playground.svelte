@@ -4,14 +4,14 @@
 		PRESETS,
 		type ImageGenerationCycleEvent,
 		type ImageGenerationPreset
-	} from 'runeglow/img-fx';
+	} from '@runeglow/svelte/img-fx';
 	import PanelGroup from '#lib/components/PanelGroup.svelte';
 	import PlaygroundShell from '#lib/components/PlaygroundShell.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import Slider from '#lib/components/Slider.svelte';
 	import SwatchRow from '#lib/components/SwatchRow.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
-	import { SITE } from '#lib/site.ts';
+	import { cardPrompt, cardSnippet, type CardValue } from './code.ts';
 	import { IMAGE_POOL, PALETTES, paletteColors, type PaletteKey } from './images.ts';
 
 	type Theme = 'dark' | 'light' | 'auto';
@@ -106,68 +106,31 @@
 		for (const k of Object.keys(d) as (keyof State)[]) (s[k] as State[keyof State]) = d[k];
 	}
 
+	/* What is on the stage, said once: the props that are written, in order.
+	   `cardSnippet` writes them out in each framework. */
 	const snippet = $derived.by(() => {
-		const p = [`preset="${s.preset}"`];
-		if (s.theme !== 'auto') p.push(`theme="${s.theme}"`);
-		if (s.strength !== 100) p.push(`strength={${num(s.strength / 100)}}`);
-		if (s.speed !== 1) p.push(`speed={${num(s.speed)}}`);
-		if (s.pixelScale !== 1) p.push(`pixelScale={${num(s.pixelScale)}}`);
-		if (s.cardBg) p.push(`cardBg="${s.cardBg}"`);
-		if (colors) p.push(`colors={[${colors.map((c) => (c ? `'${c}'` : 'null')).join(', ')}]}`);
-		p.push("images={['/images/a.jpg', '/images/b.jpg', '/images/c.jpg']}");
+		const r = (v: number) => +v.toFixed(3);
+		const p: [string, CardValue][] = [['preset', s.preset]];
+		if (s.theme !== 'auto') p.push(['theme', s.theme]);
+		if (s.strength !== 100) p.push(['strength', r(s.strength / 100)]);
+		if (s.speed !== 1) p.push(['speed', r(s.speed)]);
+		if (s.pixelScale !== 1) p.push(['pixelScale', r(s.pixelScale)]);
+		if (s.cardBg) p.push(['cardBg', s.cardBg]);
+		if (colors) p.push(['colors', colors.map((c) => c ?? null)]);
+		p.push(['images', ['/images/a.jpg', '/images/b.jpg', '/images/c.jpg']]);
 		if (s.autoReveal) {
-			p.push('autoReveal');
-			if (s.delayMin !== 2 || s.delayMax !== 4) p.push(`revealDelayRange={[${num(delayRange[0])}, ${num(delayRange[1])}]}`);
-			if (s.initialDelay != null) p.push(`revealInitialDelay={${num(s.initialDelay)}}`);
+			p.push(['autoReveal', true]);
+			if (s.delayMin !== 2 || s.delayMax !== 4) p.push(['revealDelayRange', [r(delayRange[0]), r(delayRange[1])]]);
+			if (s.initialDelay != null) p.push(['revealInitialDelay', r(s.initialDelay)]);
 		}
-		if (s.holdMs !== 2000) p.push(`revealHoldMs={${s.holdMs}}`);
-		if (s.fadeOutMs !== 300) p.push(`revealFadeOutMs={${s.fadeOutMs}}`);
+		if (s.holdMs !== 2000) p.push(['revealHoldMs', s.holdMs]);
+		if (s.fadeOutMs !== 300) p.push(['revealFadeOutMs', s.fadeOutMs]);
 		const regen = [`durationMs: ${s.regenMs}`];
 		if (!s.tint) regen.push('tintFromImage: false');
-		const lines = [
-			'<script>',
-			`  import { ImageGeneration } from '${SITE.pkg}/img-fx';`,
-			'',
-			'  let card; // the component, for its reveal functions',
-			'<\/script>',
-			'',
-			`<ImageGeneration\n  bind:this={card}\n  ${p.join('\n  ')}\n>`,
-			`  <div style="width: ${s.size}px; height: ${s.size}px; border-radius: ${s.radius}px;"></div>`,
-			'</ImageGeneration>',
-			'',
-			"<button onclick={() => (card.isImageActive() ? card.triggerHide() : card.triggerReveal({ hold: 'manual' }))}>",
-			'  Reveal or hide',
-			'</button>',
-			`<button onclick={() => card.triggerRegenerate({ ${regen.join(', ')} })}>Regenerate</button>`
-		];
-		return lines.join('\n');
+		return cardSnippet({ props: p, size: s.size, radius: s.radius, regenerate: regen.join(', ') });
 	});
 
-	const prompt = $derived(`Add the Image generation effect from ${SITE.name} to this Svelte 5 app: a WebGL mosaic
-loader on a card that resolves into an image.
-
-1. Install the packages with the project's package manager, for example:
-   pnpm add ${SITE.pkg} three
-2. Import it: import { ImageGeneration } from '${SITE.pkg}/img-fx'
-3. Wrap one element, the card. The wrapper sizes itself to it and reads its border-radius.
-4. Give it a pool of images (same-origin, or served with CORS headers).
-5. Start from this configuration:
-
-${snippet}
-
-Parameter vocabulary, for later changes:
-- preset: pixels-organic, pixels-mechanic or sweep-gradient. theme: auto, dark, light.
-- strength 0 to 2, speed, pixelScale (cell size), cardBg (the surface the effect sits on),
-  colors (seven palette slots; null keeps the preset's).
-- autoReveal with revealDelayRange [min, max] seconds, revealInitialDelay, revealHoldMs,
-  revealFadeOutMs. onCycle reports idle, reveal, visible, hide.
-- The component's functions (bind:this): triggerReveal({ hold: 'manual' }), triggerHide(),
-  triggerRegenerate({ durationMs, tintFromImage, autoReveal }), isImageActive().
-- paused freezes the effect and the reveal schedule.
-
-Notes:
-- three is a peer dependency. One WebGL context is shared by every card on the page.
-- Cards pause while offscreen.`);
+	const prompt = $derived(cardPrompt(snippet));
 </script>
 
 <PlaygroundShell

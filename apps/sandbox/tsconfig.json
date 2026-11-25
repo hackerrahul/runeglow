@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"strict": true,
+		"skipLibCheck": true,
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"noEmit": true,
+		"types": ["vite/client"],
+		"paths": {
+			"runeglow/*": ["../../packages/runeglow/src/*/index.ts"],
+			"@runeglow/react/*": ["../../packages/react/src/*/index.ts"],
+			"@runeglow/vue/*": ["../../packages/vue/src/*/index.ts"],
+			"@runeglow/elements/*": ["../../packages/elements/src/*/index.ts"]
+		}
+	},
+	"include": ["src"]
+}

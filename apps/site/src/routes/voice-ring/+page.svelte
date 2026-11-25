@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { VoiceOrb, VoiceRing, type VoiceOrbState, type VoiceOrbType, type VoiceRingType } from 'runeglow/voice-ring';
+	import { VoiceOrb, VoiceRing, type VoiceOrbState, type VoiceOrbType, type VoiceRingType } from '@runeglow/svelte/voice-ring';
 	import CodeBlock from '#lib/components/CodeBlock.svelte';
 	import DocsShell from '#lib/components/DocsShell.svelte';
 	import InstallTabs from '#lib/components/InstallTabs.svelte';
 	import LibIcon from '#lib/components/LibIcon.svelte';
 	import PropsTable, { type PropRow } from '#lib/components/PropsTable.svelte';
+	import { micName } from '#lib/demos/voice-glow/snippets.ts';
 	import { demoGetter, demoGetterLate } from '#lib/demos/voice-glow/voice.ts';
 	import Playground from '#lib/demos/voice-ring/Playground.svelte';
+	import { FRAMEWORKS, example, expr, perFramework, tag, type Framework } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 	import { SITE } from '#lib/site.ts';
 
 	/* Each ring with a voice in it (the user's or the assistant's, which look
@@ -26,17 +29,85 @@
 		{ type: 'pixel', label: 'pixel' }
 	];
 
-	const quickStart = `<script>
-  import { VoiceRing, useMicrophone } from '${SITE.pkg}/voice-ring';
+	/* The microphone is a hook in a framework and a plain object outside one,
+	   so the examples that listen are written out five times. */
+	const importOnly = perFramework((fw, info) =>
+		fw === 'elements' ? `// Importing it registers <runeglow-voice-ring> and <runeglow-voice-orb>.\nimport { createMicrophone } from '${info.pkg}/voice-ring';`
+		: fw === 'vanilla' ? `import { mountVoiceRing, mountVoiceOrb, createMicrophone } from '${info.pkg}/voice-ring';`
+		: `import { VoiceRing, VoiceOrb, useMicrophone } from '${info.pkg}/voice-ring';`
+	);
+
+	const quickStart = perFramework((fw, info) => {
+		const from = `'${info.pkg}/voice-ring'`;
+		switch (fw) {
+			case 'svelte':
+				return `<script>
+  import { VoiceRing, useMicrophone } from ${from};
 
   const mic = useMicrophone();
 <\/script>
 
 <VoiceRing size={240} state="listening" stream={mic.stream} />
 <button onclick={mic.start}>Listen</button>`;
+			case 'react':
+				return `import { VoiceRing, useMicrophone } from ${from};
 
-	const conversation = `<script>
-  import { VoiceRing, useMicrophone } from '${SITE.pkg}/voice-ring';
+export function Assistant() {
+  const mic = useMicrophone();
+
+  return (
+    <>
+      <VoiceRing size={240} state="listening" stream={mic.stream} />
+      <button onClick={mic.start}>Listen</button>
+    </>
+  );
+}`;
+			case 'vue':
+				return `<script setup>
+import { VoiceRing, useMicrophone } from ${from};
+
+const mic = useMicrophone();
+<\/script>
+
+<template>
+  <VoiceRing :size="240" state="listening" :stream="mic.stream" />
+  <button @click="mic.start">Listen</button>
+</template>`;
+			case 'elements':
+				return `<script type="module">
+  import { createMicrophone } from ${from};
+
+  const ring = document.querySelector('runeglow-voice-ring');
+  const mic = createMicrophone();
+
+  // A stream is a property: no attribute can carry it.
+  mic.subscribe(() => (ring.stream = mic.stream));
+  document.querySelector('#listen').addEventListener('click', mic.start);
+<\/script>
+
+<runeglow-voice-ring size="240" state="listening"></runeglow-voice-ring>
+<button id="listen">Listen</button>`;
+			case 'vanilla':
+				return `import { mountVoiceRing, createMicrophone } from ${from};
+
+// makes its canvas inside #assistant
+const ring = mountVoiceRing(document.querySelector('#assistant'), { size: 240, state: 'listening' });
+const mic = createMicrophone();
+
+mic.subscribe(() => ring.update({ stream: mic.stream }));
+document.querySelector('#listen').addEventListener('click', mic.start);`;
+		}
+	});
+
+	/* With components there is a ring for each speaker. Outside a framework
+	   there is one ring, and a stream wins over an analyser, so it is given
+	   one or the other. */
+	const conversation = perFramework((fw, info) => {
+		const from = `'${info.pkg}/voice-ring'`;
+		switch (fw) {
+			case 'svelte':
+				return `<script>
+  import { VoiceRing, useMicrophone } from ${from};
 
   const mic = useMicrophone();
   // 'idle' | 'listening' | 'processing' | 'speaking', from your own app.
@@ -49,8 +120,95 @@
 {:else}
   <VoiceRing state={turn} stream={mic.stream} />
 {/if}`;
+			case 'react':
+				return `import { VoiceRing, useMicrophone } from ${from};
 
-	const feeling = `<VoiceRing
+// turn: 'idle' | 'listening' | 'processing' | 'speaking', from your own app.
+export function Assistant({ turn, player }) {
+  const mic = useMicrophone();
+
+  return turn === 'speaking' ? (
+    // The assistant's voice: any AnalyserNode, or a level you compute.
+    <VoiceRing state="speaking" analyser={player.analyser} />
+  ) : (
+    <VoiceRing state={turn} stream={mic.stream} />
+  );
+}`;
+			case 'vue':
+				return `<script setup>
+import { VoiceRing, useMicrophone } from ${from};
+
+const mic = useMicrophone();
+// 'idle' | 'listening' | 'processing' | 'speaking', from your own app.
+defineProps(['turn', 'player']);
+<\/script>
+
+<template>
+  <!-- The assistant's voice: any AnalyserNode, or a level you compute. -->
+  <VoiceRing v-if="turn === 'speaking'" state="speaking" :analyser="player.analyser" />
+  <VoiceRing v-else :state="turn" :stream="mic.stream" />
+</template>`;
+			case 'elements':
+				return `<script type="module">
+  import { createMicrophone } from ${from};
+
+  const ring = document.querySelector('runeglow-voice-ring');
+  const mic = createMicrophone();
+
+  // 'idle' | 'listening' | 'processing' | 'speaking', from your own app.
+  let turn = 'idle';
+
+  function show() {
+    ring.state = turn;
+    // The assistant's voice: any AnalyserNode, or a level you compute.
+    // A stream wins over an analyser, so the ring is given one or the other.
+    ring.analyser = turn === 'speaking' ? player.analyser : null;
+    ring.stream = turn === 'speaking' ? null : mic.stream;
+  }
+  mic.subscribe(show);
+
+  // Call this as the conversation moves.
+  function setTurn(next) {
+    turn = next;
+    show();
+  }
+<\/script>
+
+<runeglow-voice-ring state="idle"></runeglow-voice-ring>`;
+			case 'vanilla':
+				return `import { mountVoiceRing, createMicrophone } from ${from};
+
+const ring = mountVoiceRing(document.querySelector('#assistant'), { state: 'idle' });
+const mic = createMicrophone();
+
+// 'idle' | 'listening' | 'processing' | 'speaking', from your own app.
+let turn = 'idle';
+
+function show() {
+  const speaking = turn === 'speaking';
+  ring.update({
+    state: turn,
+    // The assistant's voice: any AnalyserNode, or a level you compute.
+    // A stream wins over an analyser, so the ring is given one or the other.
+    analyser: speaking ? player.analyser : null,
+    stream: speaking ? null : mic.stream
+  });
+}
+mic.subscribe(show);
+
+// Call this as the conversation moves.
+export function setTurn(next) {
+  turn = next;
+  show();
+}`;
+		}
+	});
+
+	const FEELING = { type: 'mono', state: 'speaking', level: expr('level'), emotion: 'calm', direction: -0.6, hoverBend: true };
+	const feeling = perFramework((fw) => {
+		switch (fw) {
+			case 'svelte':
+				return `<VoiceRing
   type="mono"
   state="speaking"
   {level}
@@ -58,12 +216,59 @@
   direction={-0.6}
   hoverBend
 />`;
+			case 'elements':
+				// the tag leaves `level` out: it is a function here, and so a property
+				return `${tag(fw, 'VoiceRing', FEELING)}
 
-	const orbs = `<script>
-  import { VoiceOrb } from '${SITE.pkg}/voice-ring';
+<script type="module">
+  // A function is a property: no attribute can carry it.
+  document.querySelector('runeglow-voice-ring').level = level;
+<\/script>`;
+			case 'vanilla':
+				return `mountVoiceRing(document.querySelector('#assistant'), {
+  type: 'mono',
+  state: 'speaking',
+  level,
+  emotion: 'calm',
+  direction: -0.6,
+  hoverBend: true
+});`;
+			default:
+				return tag(fw, 'VoiceRing', FEELING);
+		}
+	});
+
+	const orbs = {
+		...example({
+			component: 'VoiceOrb',
+			props: { type: 'swell', size: 160, state: 'listening', level: expr('level'), accent: 'green' },
+			input: 'level',
+			wrapper: 'Orb'
+		}),
+		svelte: `<script>
+  import { VoiceOrb } from '${FRAMEWORKS.svelte.pkg}/voice-ring';
 <\/script>
 
-<VoiceOrb type="swell" size={160} state="listening" {level} accent="green" />`;
+<VoiceOrb type="swell" size={160} state="listening" {level} accent="green" />`,
+		elements: `<script type="module">
+  import '${FRAMEWORKS.elements.pkg}/voice-ring';
+
+  // A function is a property: no attribute can carry it.
+  document.querySelector('runeglow-voice-orb').level = level;
+<\/script>
+
+<runeglow-voice-orb type="swell" size="160" state="listening" accent="green"></runeglow-voice-orb>`,
+		vanilla: `import { mountVoiceOrb } from '${FRAMEWORKS.vanilla.pkg}/voice-ring';
+
+// makes its canvas inside #assistant
+const orb = mountVoiceOrb(document.querySelector('#assistant'), {
+  type: 'swell',
+  size: 160,
+  state: 'listening',
+  level,
+  accent: 'green'
+});`
+	};
 
 	const props: PropRow[] = [
 		{ name: 'type', type: "'ring' | 'mono'", default: "'ring'", description: 'ring is a glassy ribbon with a spectrum running round it. mono is two loops of grey tube that a voice opens into a turning globe.' },
@@ -88,10 +293,48 @@
 		{ name: 'paused', type: 'boolean', default: 'false', description: 'Holds the current frame.' },
 		{ name: 'dots', type: 'number', default: '1', description: 'Density multiplier on the type’s dot and segment counts.' },
 		{ name: 'opts', type: 'Record<string, number>', description: 'The type’s own knobs, such as { rings: 8, halo: 0.7 }. The playground lists them.' },
-		{ name: 'onLevel', type: '(level: number) => void', description: 'Called every frame with the shaped level, 0 to 1.' },
-		{ name: 'ref', type: 'HTMLCanvasElement | null', description: 'The canvas. Bindable with bind:ref.' },
-		{ name: '...rest', type: 'HTMLCanvasAttributes', description: 'class, style, aria-label and other attributes are forwarded to the canvas.' }
+		{ name: 'onLevel', type: '(level: number) => void', description: 'Called every frame with the shaped level, 0 to 1.' }
 	];
+
+	/* the canvas, and what cannot be written as text, which each framework has its own way with */
+	const reach: Record<Framework, PropRow[]> = {
+		svelte: [
+			{ name: 'ref', type: 'HTMLCanvasElement | null', description: 'The canvas. Bindable with bind:ref.' },
+			{ name: '...rest', type: 'HTMLCanvasAttributes', description: 'class, style, aria-label and other attributes are forwarded to the canvas.' }
+		],
+		react: [
+			{ name: 'ref', type: 'Ref<HTMLCanvasElement>', description: 'Reaches the canvas.' },
+			{ name: '...rest', type: 'CanvasHTMLAttributes', description: 'className, style, aria-label and other attributes are forwarded to the canvas.' }
+		],
+		vue: [
+			{ name: 'template ref', type: '{ element }', description: 'A ref on the component gives the canvas as element.' },
+			{ name: 'attributes', type: 'fallthrough', description: 'class, style, aria-label and other attributes fall through to the canvas.' },
+			{ name: 'in a template', type: 'kebab-case', description: 'voiceSpeed is written voice-speed and hoverBend hover-bend. onLevel is a prop: bind it as :on-level, or listen with @level.' }
+		],
+		elements: [
+			{ name: 'label', type: 'string', description: 'The accessible name, in place of the state.' },
+			{ name: 'attributes', type: 'kebab-case', description: 'Every option is a property in camelCase and, where text can say it, an attribute: voiceSpeed is voice-speed. level and direction are written as numbers, hover-bend alone or as a number, emotion-colors and opts as JSON.' },
+			{ name: 'properties only', type: 'live objects, functions', description: 'stream, analyser, directionBounds, a function for level or direction, and onLevel cannot be attributes: set them from a script.' },
+			{ name: 'styling', type: 'shadow root', description: 'The canvas is in the element’s shadow root. class and style on the tag lay out the element, an inline box of size by size.' }
+		],
+		vanilla: [
+			{ name: 'first argument', type: 'Element | ShadowRoot', description: 'The parent the canvas is made in.' },
+			{ name: 'class', type: 'string', description: 'A class for the canvas.' },
+			{ name: 'label', type: 'string', description: 'The accessible name, in place of the state.' },
+			{ name: 'returns', type: '{ element, update, destroy }', description: 'The canvas; update(options) changes some options and keeps the rest; destroy() stops it and removes the canvas.' }
+		]
+	};
+
+	/* what the page calls the two in the chosen framework: components, tags, or the core's functions */
+	const NAMES: Record<Framework, { ring: string; orb: string; kind: string; option: string }> = {
+		svelte: { ring: 'VoiceRing', orb: 'VoiceOrb', kind: 'component', option: 'prop' },
+		react: { ring: 'VoiceRing', orb: 'VoiceOrb', kind: 'component', option: 'prop' },
+		vue: { ring: 'VoiceRing', orb: 'VoiceOrb', kind: 'component', option: 'prop' },
+		elements: { ring: '<runeglow-voice-ring>', orb: '<runeglow-voice-orb>', kind: 'element', option: 'option' },
+		vanilla: { ring: 'mountVoiceRing', orb: 'mountVoiceOrb', kind: 'function', option: 'option' }
+	};
+	const names = $derived(NAMES[framework.id]);
+	const mic = $derived(micName(framework.id));
 
 	const lean: PropRow[] = [
 		{ name: 'directionMove', type: 'number', default: 'per type', description: 'How far it drifts toward the voice, as a share of its radius.' },
@@ -106,7 +349,6 @@
 	];
 
 	const ink: PropRow[] = [
-		{ name: 'type', type: "'orbit' | 'sash' | 'signal' | 'swell' | 'pixel' | 'aura' | 'aura-mono'", default: "'orbit'", description: 'Which orb. aura and aura-mono are VoiceRing’s ring and mono.' },
 		{ name: 'accent', type: "'green' | 'red' | 'blue' | null", default: 'null', description: 'A fixed colour for the gradient, shown even without an emotion.' },
 		{ name: 'saturation', type: 'number', default: '2', description: 'How strong the colour gets: 0 never, 1 the colour itself, up to 2 purer and deeper.' },
 		{ name: 'neutral', type: 'number', default: '1', description: '1 starts the gradient in plain ink; 0 covers the orb in the colour.' },
@@ -117,6 +359,13 @@
 		{ name: 'dotSize', type: 'number', default: 'per type', description: 'Multiplier on every dot radius.' },
 		{ name: 'frame', type: 'TypeFrame', description: 'Replace the type’s geometry with your own function.' }
 	];
+	const frameIsProperty: PropRow = { name: 'properties only', type: 'frame', description: 'frame is a function, so it is a property of the element and never an attribute.' };
+	/* the orb's own rows: its types, named after the ring as this framework calls it, then the ink's */
+	const orbRows = $derived<PropRow[]>([
+		{ name: 'type', type: "'orbit' | 'sash' | 'signal' | 'swell' | 'pixel' | 'aura' | 'aura-mono'", default: "'orbit'", description: `Which orb. aura and aura-mono are ${names.ring}’s ring and mono.` },
+		...ink,
+		...(framework.id === 'elements' ? [frameIsProperty] : [])
+	]);
 </script>
 
 <DocsShell>
@@ -145,14 +394,14 @@
 		<h2>Install</h2>
 		<div class="stack">
 			<InstallTabs registry="voice-ring" />
-			<CodeBlock code={`import { VoiceRing, VoiceOrb, useMicrophone } from '${SITE.pkg}/voice-ring';`} copyLabel="Copy import" />
+			<CodeBlock code={importOnly} copyLabel="Copy import" />
 		</div>
 	</section>
 
 	<section id="usage">
 		<h2>Usage</h2>
 		<p class="text">
-			Place the ring and hand it a microphone stream. <code class="icode">useMicrophone</code> asks for
+			Place the ring and hand it a microphone stream. <code class="icode">{mic}</code> asks for
 			it; call <code class="icode">start</code> from a click so the browser lets audio begin.
 		</p>
 		<CodeBlock code={quickStart} />
@@ -171,7 +420,7 @@
 
 	<section id="props">
 		<h2>Props</h2>
-		<PropsTable rows={props} />
+		<PropsTable rows={[...props, ...reach[framework.id]]} />
 	</section>
 
 	<section id="lean">
@@ -185,9 +434,9 @@
 	</section>
 
 	<section id="orbs">
-		<h2>VoiceOrb</h2>
+		<h2>{names.orb}</h2>
 		<p class="text">
-			The ring is drawn by a more general component that the package also exports. It has five more
+			The ring is drawn by a more general {names.kind} that the package also exports. It has five more
 			types, drawn in ink instead of light, which can take a colour gradient.
 		</p>
 		<div class="orbs">
@@ -201,8 +450,8 @@
 		<div class="gap">
 			<CodeBlock code={orbs} />
 		</div>
-		<p class="text">It takes every prop above, and these as well:</p>
-		<PropsTable rows={ink} />
+		<p class="text">It takes every {names.option} above, and these as well:</p>
+		<PropsTable rows={orbRows} />
 	</section>
 
 	<section id="notes">
@@ -216,7 +465,7 @@
 			<li>
 				If it stays still while you speak, the browser has probably opened an input that is switched
 				off, such as a laptop’s built-in microphone while its lid is closed. Pick the input yourself
-				with <code class="icode">{'useMicrophone({ constraints: { deviceId } })'}</code>.
+				with <code class="icode">{`${mic}({ constraints: { deviceId } })`}</code>.
 			</li>
 			<li>
 				With a <code class="icode">direction</code>, the canvas grows sideways into negative margins
@@ -228,9 +477,9 @@
 				<code class="icode">prefers-reduced-motion</code>.
 			</li>
 			<li>
-				The React package pairs with two separate models for detecting emotion and direction. They are
-				not part of this port: pass your own values to <code class="icode">emotion</code> and
-				<code class="icode">direction</code>.
+				The {SITE.upstream.name} package this is ported from pairs with two separate models for detecting
+				emotion and direction. They are not part of Runeglow: pass your own values to
+				<code class="icode">emotion</code> and <code class="icode">direction</code>.
 			</li>
 		</ul>
 	</section>

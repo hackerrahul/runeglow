@@ -1,0 +1,91 @@
+{
+	"name": "@runeglow/elements",
+	"version": "0.3.0",
+	"description": "Runeglow as custom elements: animated bot avatars and robot heads for AI agents, as HTML tags that work in any framework or none.",
+	"keywords": [
+		"web-components",
+		"custom-elements",
+		"animation",
+		"effects",
+		"canvas",
+		"avatar",
+		"robot",
+		"ai",
+		"agent",
+		"ui"
+	],
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"sideEffects": true,
+	"exports": {
+		"./border-beam": {
+			"types": "./dist/border-beam/index.d.ts",
+			"default": "./dist/border-beam/index.js"
+		},
+		"./thinking-orbs": {
+			"types": "./dist/thinking-orbs/index.d.ts",
+			"default": "./dist/thinking-orbs/index.js"
+		},
+		"./bot-avatars": {
+			"types": "./dist/bot-avatars/index.d.ts",
+			"default": "./dist/bot-avatars/index.js"
+		},
+		"./liquid-gooey": {
+			"types": "./dist/liquid-gooey/index.d.ts",
+			"default": "./dist/liquid-gooey/index.js"
+		},
+		"./voice-glow": {
+			"types": "./dist/voice-glow/index.d.ts",
+			"default": "./dist/voice-glow/index.js"
+		},
+		"./voice-ring": {
+			"types": "./dist/voice-ring/index.d.ts",
+			"default": "./dist/voice-ring/index.js"
+		},
+		"./metal-fx": {
+			"types": "./dist/metal-fx/index.d.ts",
+			"default": "./dist/metal-fx/index.js"
+		},
+		"./img-fx": {
+			"types": "./dist/img-fx/index.d.ts",
+			"default": "./dist/img-fx/index.js"
+		},
+		"./distortion-waves": {
+			"types": "./dist/distortion-waves/index.d.ts",
+			"default": "./dist/distortion-waves/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"scripts": {
+		"build": "rm -rf dist && tsc -p tsconfig.build.json",
+		"check": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"runeglow": "workspace:^"
+	},
+	"peerDependencies": {
+		"three": ">=0.149.0"
+	},
+	"peerDependenciesMeta": {
+		"three": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"typescript": "^6.0.3"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"license": "MIT",
+	"homepage": "https://runeglow.dev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/hackerrahul/runeglow.git",
+		"directory": "packages/elements"
+	},
+	"bugs": "https://github.com/hackerrahul/runeglow/issues",
+	"author": "Rahul Gangotri"
+}

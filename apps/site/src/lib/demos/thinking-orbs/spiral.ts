@@ -1,4 +1,4 @@
-import { finalizeFrame, radiusScale, type Dot, type ModeFrame } from 'runeglow/thinking-orbs';
+import { finalizeFrame, radiusScale, type Dot, type ModeFrame } from '@runeglow/svelte/thinking-orbs';
 
 /** A hand-written frame, to show the `frame` prop: dots on a turning spiral. */
 export const spiral: ModeFrame = (size, t, o) => {

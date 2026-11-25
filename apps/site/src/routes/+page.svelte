@@ -1,37 +1,45 @@
 <script lang="ts">
-	import { BorderBeam } from 'runeglow/border-beam';
+	import { BorderBeam } from '@runeglow/svelte/border-beam';
 	import CopyButton from '#lib/components/CopyButton.svelte';
 	import CodeBlock from '#lib/components/CodeBlock.svelte';
 	import InstallTabs from '#lib/components/InstallTabs.svelte';
 	import LibIcon from '#lib/components/LibIcon.svelte';
 	import Subject from '#lib/demos/border-beam/Subject.svelte';
 	import OrbPill from '#lib/demos/thinking-orbs/OrbPill.svelte';
-	import { BotAvatar, RobotHead, type RobotHeadState } from 'runeglow/bot-avatars';
+	import { BotAvatar, RobotHead, type RobotHeadState } from '@runeglow/svelte/bot-avatars';
 	import { FAMILIES } from '#lib/demos/bot-avatars/families.ts';
 	import MorphDemo from '#lib/demos/liquid-gooey/MorphDemo.svelte';
 	import { DEFAULT_GROUP } from '#lib/demos/liquid-gooey/shared.ts';
-	import { VoiceBeam } from 'runeglow/voice-glow';
-	import { VoiceRing } from 'runeglow/voice-ring';
-	import { MetalFx } from 'runeglow/metal-fx';
-	import { ImageGeneration } from 'runeglow/img-fx';
+	import { VoiceBeam } from '@runeglow/svelte/voice-glow';
+	import { VoiceRing } from '@runeglow/svelte/voice-ring';
+	import { MetalFx } from '@runeglow/svelte/metal-fx';
+	import { ImageGeneration } from '@runeglow/svelte/img-fx';
 	import WaveScene from '#lib/demos/distortion-waves/Scene.svelte';
 	import { IMAGE_POOL } from '#lib/demos/img-fx/images.ts';
 	import '#lib/demos/metal-fx/demo.css';
 	import RecordingPill from '#lib/demos/voice-glow/RecordingPill.svelte';
 	import { demoGetter } from '#lib/demos/voice-glow/voice.ts';
+	import { example } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 	import { LIBRARIES, SITE } from '#lib/site.ts';
 
 	const ready = LIBRARIES.filter((l) => l.status === 'ready').length;
 
-	const install = `pnpm add ${SITE.pkg}`;
+	/* the install command and the example follow the framework chosen in any tab on the site */
+	const install = $derived(`pnpm add ${framework.info.pkg}`);
 
-	const usage = `<script>
-  import { BorderBeam } from '${SITE.pkg}/border-beam';
-<\/script>
+	const usage = {
+		...example({
+			component: 'BorderBeam',
+			children: { svelte: '<Card />', react: '<Card />', vue: '<Card />', elements: '<div class="card">…</div>' }
+		}),
+		// with no framework the beam goes on a wrapper the page already has
+		vanilla: `import { attachBorderBeam } from 'runeglow/border-beam';
 
-<BorderBeam>
-  <Card />
-</BorderBeam>`;
+// <div id="beam"><div class="card">…</div></div>
+// it is attached to the wrapper, and draws the beam round what is inside
+const beam = attachBorderBeam(document.querySelector('#beam'));`
+	};
 
 	/* The robot in the families band plays through an agent's run, so its
 	   screen is seen changing without anyone touching it. */
@@ -49,19 +57,19 @@
 		},
 		{
 			q: 'What do I need to use it?',
-			a: 'Svelte 5. The package has no runtime dependencies. One library, Image generation, also needs three installed.'
+			a: 'Svelte 5, React 18, Vue 3.5, or no framework at all: there is a package for each, and custom elements for everything else. One library, Image generation, also needs three installed.'
 		},
 		{
-			q: 'Why one package instead of nine?',
+			q: 'Why one package for all nine?',
 			a: 'One install and one version to keep up with. Each library has its own import path, so your bundle only carries the one you import.'
 		},
 		{
-			q: 'Does it work with SvelteKit and server rendering?',
-			a: 'Yes. The components render on the server and start animating once they hydrate.'
+			q: 'Does it work with server rendering?',
+			a: 'Yes. The Svelte, React and Vue components render their markup on the server and start animating in the browser.'
 		},
 		{
 			q: 'How is it related to Libraries.dev?',
-			a: 'It is a Svelte port of it. The effect engines are Jakub Antalik’s original code; the Svelte components around them and this site are new. The two ML-model libraries are not included.'
+			a: 'It began as a Svelte port of it. The effect engines are Jakub Antalik’s original code; the framework-free core round them, the components for each framework and this site are new. The two ML-model libraries are not included.'
 		}
 	];
 </script>
@@ -72,9 +80,9 @@
 		<div class="mark" aria-hidden="true">
 			<VoiceRing size={152} state="processing" hoverBend={0.7} theme="dark" />
 		</div>
-		<h1>Light up your Svelte interface</h1>
+		<h1>Light up your interface</h1>
 		<p class="lead">
-			Nine animated effects for AI and product interfaces, as Svelte 5 components in one package:
+			Nine animated effects for AI and product interfaces, for Svelte, React, Vue and plain HTML:
 			beams, orbs, avatars, voices, liquid metal and more.
 		</p>
 		<div class="actions">
@@ -87,7 +95,7 @@
 			</BorderBeam>
 		</div>
 		<p class="facts">
-			{ready === LIBRARIES.length ? `${ready} libraries` : `${ready} of ${LIBRARIES.length} libraries ready`} · MIT · one package
+			{ready === LIBRARIES.length ? `${ready} libraries` : `${ready} of ${LIBRARIES.length} libraries ready`} · MIT · Svelte, React, Vue, HTML
 		</p>
 	</div>
 

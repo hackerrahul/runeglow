@@ -1,0 +1,29 @@
+import adapter from '@sveltejs/adapter-auto';
+import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
+
+// The dev bench reads the core from its source. A Vite alias, not a SvelteKit
+// one: the package build would write a SvelteKit alias into the output as a
+// relative path, and the import has to stay `runeglow/...` there.
+const core = fileURLToPath(new URL('../runeglow/src', import.meta.url));
+
+export default defineConfig({
+	resolve: {
+		alias: [{ find: /^runeglow\/(.+)$/, replacement: `${core}/$1/index.ts` }]
+	},
+	plugins: [
+		sveltekit({
+			compilerOptions: {
+				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
+				runes: ({ filename }) =>
+					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
+			},
+
+			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
+			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
+			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
+			adapter: adapter()
+		})
+	]
+});

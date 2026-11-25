@@ -1,10 +1,10 @@
-import pkg from '../../../../packages/runeglow/package.json';
+import pkg from '../../../../packages/svelte/package.json';
 
 export const SITE = {
 	name: 'Runeglow',
-	pkg: 'runeglow',
+	pkg: '@runeglow/svelte',
 	version: pkg.version,
-	tagline: 'UI effects for Svelte',
+	tagline: 'UI effects for any framework',
 	/** Where the site, and the registry under /r, are served. */
 	url: 'https://runeglow.dev',
 	repo: 'https://github.com/hackerrahul/runeglow' as string | null,
@@ -15,6 +15,11 @@ export const SITE = {
 		handle: '@rahul__gangotri',
 		github: 'https://github.com/hackerrahul'
 	},
+	/** The author's other projects, listed in the footer. */
+	projects: [
+		{ name: 'betterMQ', url: 'https://bettermq.com' },
+		{ name: 'GistUI', url: 'https://gistui.com' }
+	],
 	upstream: {
 		name: 'Libraries.dev',
 		url: 'https://libraries.dev',

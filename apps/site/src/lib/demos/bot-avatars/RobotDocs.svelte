@@ -8,42 +8,70 @@
 		robotHeadShapes,
 		robotHeadStates,
 		type RobotHeadColorwayName
-	} from 'runeglow/bot-avatars';
+	} from '@runeglow/svelte/bot-avatars';
 	import CodeBlock from '#lib/components/CodeBlock.svelte';
 	import InstallTabs from '#lib/components/InstallTabs.svelte';
 	import PropsTable, { type PropRow } from '#lib/components/PropsTable.svelte';
-	import { SITE } from '#lib/site.ts';
+	import { example, expr, fragment, importLine, perFramework, type Framework } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 	import RobotPlayground from './RobotPlayground.svelte';
 
 	/* a different colourway per shape, so the row is not six blue heads */
 	const SHAPE_WAYS: RobotHeadColorwayName[] = ['cobalt', 'graphite', 'snow', 'cream', 'tangerine', 'cherry'];
 
-	const quickStart = `<script>
-  import { RobotHead } from '${SITE.pkg}/bot-avatars';
-<\/script>
+	const quickStart = example({ component: 'RobotHead' });
 
-<RobotHead />`;
+	const status = example({
+		component: 'RobotHead',
+		// 'idle' | 'thinking' | 'searching' | 'working' | 'waiting' | 'success' | 'error' ...
+		props: { state: expr('status'), size: 120 },
+		input: 'status'
+	});
 
-	const status = `<script>
-  import { RobotHead } from '${SITE.pkg}/bot-avatars';
+	const looks = fragment(
+		[
+			{ component: 'RobotHead', props: { shape: 'circle', colorway: 'tangerine' } },
+			{ component: 'RobotHead', props: { shape: 'hexagon', colorway: 'graphite', finish: 'matte', pixels: 'round' } },
+			{ component: 'RobotHead', props: { color: '#0f766e', trimColor: '#c9a25a', screenColor: '#fde68a', finish: 'metal' } }
+		],
+		{ comment: 'The last one names its own colours: the shell, the ears and collar, the LEDs.' }
+	);
 
-  // 'idle' | 'thinking' | 'searching' | 'working' | 'waiting' | 'success' | 'error' ...
-  let { status } = $props();
-<\/script>
+	const small = fragment([{ component: 'RobotHead', props: { size: 32, antenna: false, floorShadow: false, state: 'speaking' } }], {
+		comment: 'In a message list: no antenna, so the head fills the box, and no shadow.'
+	});
 
-<RobotHead state={status} size={120} />`;
+	const held = fragment([{ component: 'RobotHead', props: { pose: { yaw: 2.6, pitch: 0.15 } } }], {
+		comment: 'Turned by hand: the back has vents, a panel line and four screws.'
+	});
 
-	const looks = `<RobotHead shape="circle" colorway="tangerine" />
-<RobotHead shape="hexagon" colorway="graphite" finish="matte" pixels="round" />
+	const importOnly = perFramework((fw) => importLine(fw, 'bot-avatars', [fw === 'vanilla' ? 'mountRobotHead' : 'RobotHead']));
 
-<!-- Or name the colours yourself: the shell, the ears and collar, the LEDs. -->
-<RobotHead color="#0f766e" trimColor="#c9a25a" screenColor="#fde68a" finish="metal" />`;
-
-	const small = `<!-- In a message list: no antenna, so the head fills the box, and no shadow. -->
-<RobotHead size={32} antenna={false} floorShadow={false} state="speaking" />`;
-
-	const held = `<!-- Turned by hand: the back has vents, a panel line and four screws. -->
-<RobotHead pose={{ yaw: 2.6, pitch: 0.15 }} />`;
+	/* how the element itself is reached, which each framework does its own way */
+	const reach: Record<Framework, PropRow[]> = {
+		svelte: [
+			{ name: 'ref', type: 'HTMLCanvasElement | null', description: 'The canvas inside the element. Bindable with bind:ref.' },
+			{ name: '...rest', type: 'HTMLAttributes<HTMLSpanElement>', description: 'class, style, aria-label, onclick and other attributes go on the element, the size by size box.' }
+		],
+		react: [
+			{ name: 'ref', type: 'Ref<HTMLCanvasElement>', description: 'Reaches the canvas inside the element.' },
+			{ name: '...rest', type: 'HTMLAttributes<HTMLSpanElement>', description: 'className, style, aria-label, onClick and other attributes go on the element, the size by size box.' }
+		],
+		vue: [
+			{ name: 'template ref', type: '{ element, canvas, poke() }', description: 'A ref on the component gives the box as element, its canvas, and poke(), which does what a click does.' },
+			{ name: 'attributes', type: 'fallthrough', description: 'class, style, aria-label, @click and other attributes fall through to the element, the size by size box.' }
+		],
+		elements: [
+			{ name: 'label', type: 'string', description: 'The accessible name, in place of “Robot, ” and the state.' },
+			{ name: 'poke()', type: 'method', description: 'Does what a click does: a hop, a spin and a smile.' },
+			{ name: 'properties', type: 'camelCase', description: 'Every option is also a property: floorShadow in JavaScript is floor-shadow in HTML.' }
+		],
+		vanilla: [
+			{ name: 'class', type: 'string', description: 'A class for the box element.' },
+			{ name: 'label', type: 'string', description: 'The accessible name, in place of “Robot, ” and the state.' },
+			{ name: 'returns', type: '{ element, canvas, update, poke, destroy }', description: 'The box and its canvas; update(options) changes some options and keeps the rest; destroy() stops it and removes the elements.' }
+		]
+	};
 
 	const main: PropRow[] = [
 		{ name: 'shape', type: "'rectangle' | 'square' | 'circle' | 'hexagon' | 'capsule' | 'octagon'", default: "'rectangle'", description: 'The head’s outline. Every shape has the same screen, ears, antenna, screws and back panel.' },
@@ -62,8 +90,6 @@
 		{ name: 'seed', type: 'number', default: 'per instance', description: '0 to 1. Offsets blinks and glances. Give two heads the same seed to move them in step.' },
 		{ name: 'interactive', type: 'boolean', default: 'true', description: 'Head and eyes follow a nearby pointer, and a click makes it hop, spin and smile.' },
 		{ name: 'pose', type: '{ yaw?, pitch?, roll? }', description: 'Holds the head at an orientation, in radians. The screen and the antenna keep going.' },
-		{ name: 'ref', type: 'HTMLCanvasElement | null', description: 'The canvas inside the element. Bindable with bind:ref.' },
-		{ name: '...rest', type: 'HTMLAttributes<HTMLSpanElement>', description: 'class, style, aria-label, onclick and other attributes go on the element, the size by size box.' }
 	];
 
 	/* what each state shows, and how it moves */
@@ -145,7 +171,7 @@
 	<h2>Install</h2>
 	<div class="ba-stack">
 		<InstallTabs registry="bot-avatars" />
-		<CodeBlock code={`import { RobotHead } from '${SITE.pkg}/bot-avatars';`} copyLabel="Copy import" />
+		<CodeBlock code={importOnly} copyLabel="Copy import" />
 	</div>
 </section>
 
@@ -168,7 +194,7 @@
 
 <section id="props">
 	<h2>Props</h2>
-	<PropsTable rows={main} />
+	<PropsTable rows={[...main, ...reach[framework.id]]} />
 </section>
 
 <section id="states">

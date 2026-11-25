@@ -6,7 +6,7 @@
 		type VoiceOrbProps,
 		type VoiceOrbState,
 		type VoiceOrbType
-	} from 'runeglow/voice-ring';
+	} from '@runeglow/svelte/voice-ring';
 	import PanelGroup from '#lib/components/PanelGroup.svelte';
 	import PlaygroundShell from '#lib/components/PlaygroundShell.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
@@ -14,7 +14,9 @@
 	import SwatchRow from '#lib/components/SwatchRow.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
 	import { createMicInput } from '#lib/demos/voice-glow/micInput.svelte.ts';
+	import { htmlFile, openTag, reactFile, sections, svelteFile, vueFile } from '#lib/demos/voice-glow/snippets.ts';
 	import { MIC_STATUS, demoGetter } from '#lib/demos/voice-glow/voice.ts';
+	import { COMPONENTS, FRAMEWORKS, attrs, expr, options, perFramework, type Framework, type PropValue, type Props } from '#lib/code.ts';
 	import { SITE } from '#lib/site.ts';
 	import { KNOBS, LEAN_KEYS, ORB_TYPE, type Knob, type Pick } from './knobs.ts';
 
@@ -253,83 +255,219 @@
 		s = fresh();
 	}
 
-	const attr = (key: string, value: unknown): string => {
-		if (value === true) return key;
-		if (typeof value === 'string') return `${key}="${value}"`;
-		if (key === 'opts') {
-			const body = Object.entries(value as Record<string, number>)
-				.map(([k, v]) => `${k}: ${num(v)}`)
-				.join(', ');
-			return `opts={{ ${body} }}`;
+	/* The overrides as the code shows them: every number rounded, the knobs' too. */
+	const rounded = (v: unknown): PropValue =>
+		typeof v === 'number' ? +v.toFixed(3)
+		: v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, w]) => [k, rounded(w)]))
+		: (v as PropValue);
+	const shown = $derived<Props>(Object.fromEntries(Object.entries(overrides).map(([k, v]) => [k, rounded(v)])));
+
+	const LEVEL_NOTE = 'A number from 0 to 1, or a function returning one, called every frame.';
+	const SIDE_NOTE = 'The side the voice comes from, -1 left to 1 right: from your own stereo or diarised input.';
+	const SWAY = '() => Math.sin(performance.now() / 1600)';
+
+	const name = $derived(isRing ? 'VoiceRing' : 'VoiceOrb');
+	const snippet = $derived(
+		perFramework((fw) => {
+			const info = COMPONENTS[name];
+			const from = `'${FRAMEWORKS[fw].pkg}/voice-ring'`;
+			const source = s.source;
+			const level = num(s.manual / 100);
+			const side = num(s.from);
+			/* the type first (a ring's default is left out), then the state, then every override */
+			const lead: Props = { type: s.pick === 'ring' ? undefined : s.pick, state: s.state };
+
+			if (fw === 'elements') {
+				/* text goes in attributes; a stream and a function are set as properties */
+				const it = isRing ? 'ring' : 'orb';
+				const list = attrs(fw, { ...lead, ...shown });
+				if (source === 'manual') list.push(`level="${level}"`);
+				if (s.direction === 'manual') list.push(`direction="${side}"`);
+				const scripted = source !== 'manual' || s.direction === 'sway';
+				const script = sections(
+					[source === 'mic' ? `import { createMicrophone } from ${from};` : `import ${from};`],
+					scripted ? [`const ${it} = document.querySelector('${info.element}');`, ...(source === 'mic' ? ['const mic = createMicrophone();'] : [])] : [],
+					source === 'mic'
+						? [
+								'// A stream is a property: no attribute can carry it.',
+								`mic.subscribe(() => (${it}.stream = mic.stream));`,
+								"document.querySelector('#listen').addEventListener('click', mic.start);"
+							]
+						: source === 'demo'
+							? [`// Your own level. ${LEVEL_NOTE}`, '// A function is a property: no attribute can carry it.', `${it}.level = () => meter.level;`]
+							: [],
+					s.direction === 'sway' ? ['// Called every frame: -1 left to 1 right.', `${it}.direction = ${SWAY};`] : []
+				);
+				const after = source === 'mic' ? '\n<button id="listen">Listen</button>' : '';
+				return htmlFile(script, `${s.direction === 'manual' ? `<!-- direction: ${SIDE_NOTE[0].toLowerCase()}${SIDE_NOTE.slice(1)} -->\n` : ''}${openTag(info.element, list, false, 3)}</${info.element}>${after}`);
+			}
+
+			if (fw === 'vanilla') {
+				const it = isRing ? 'ring' : 'orb';
+				const opts = options({
+					...lead,
+					...shown,
+					...(source === 'manual' ? { level: +level } : source === 'demo' ? { level: expr('() => meter.level') } : {}),
+					...(s.direction === 'manual' ? { direction: +side } : s.direction === 'sway' ? { direction: expr('side') } : {})
+				});
+				return sections(
+					[`import { ${info.mount}${source === 'mic' ? ', createMicrophone' : ''} } from ${from};`],
+					s.direction === 'sway' ? ['// Called every frame: -1 left to 1 right.', `const side = ${SWAY};`] : [],
+					[
+						'// makes its canvas inside #assistant',
+						...(source === 'demo' ? [`// level is yours to supply. ${LEVEL_NOTE}`] : []),
+						...(s.direction === 'manual' ? [`// direction: ${SIDE_NOTE[0].toLowerCase()}${SIDE_NOTE.slice(1)}`] : []),
+						`const ${it} = ${info.mount}(document.querySelector('#assistant'), ${opts});`,
+						...(source === 'mic' ? ['const mic = createMicrophone();'] : [])
+					],
+					source === 'mic'
+						? [`mic.subscribe(() => ${it}.update({ stream: mic.stream }));`, "document.querySelector('#listen').addEventListener('click', mic.start);"]
+						: []
+				);
+			}
+
+			/* a component: the source and the direction come after every override */
+			const bind = (key: string, value: string) => (fw === 'vue' ? `:${key}="${value}"` : `${key}={${value}}`);
+			const list = attrs(fw, { ...lead, ...shown });
+			list.push(
+				source === 'mic' ? bind('stream', 'mic.stream')
+				: source === 'manual' ? bind('level', level)
+				: fw === 'svelte' ? '{level}'
+				: bind('level', 'level')
+			);
+			if (s.direction === 'manual') list.push(bind('direction', side));
+			else if (s.direction === 'sway') list.push(bind('direction', 'side'));
+
+			const names = `import { ${name}${source === 'mic' ? ', useMicrophone' : ''} } from ${from};`;
+			const hook = source === 'mic' ? ['const mic = useMicrophone();'] : [];
+			const sideNote = s.direction === 'manual' ? [`// ${SIDE_NOTE}`] : [];
+			const sideFn = s.direction === 'sway' ? ['// Called every frame: -1 left to 1 right.', `const side = ${SWAY};`] : [];
+			const ring = openTag(name, list, true, 3);
+
+			if (fw === 'react') {
+				const notes = [
+					...(source === 'demo' ? [`// level: ${LEVEL_NOTE[0].toLowerCase()}${LEVEL_NOTE.slice(1)}`] : []),
+					...(s.direction === 'manual' ? [`// direction: ${SIDE_NOTE[0].toLowerCase()}${SIDE_NOTE.slice(1)}`] : [])
+				];
+				return reactFile({
+					top: sections([names], sideFn),
+					note: notes.join('\n') || undefined,
+					params: source === 'demo' ? 'level' : undefined,
+					body: hook.join('\n'),
+					markup: source === 'mic' ? [ring, '<button onClick={mic.start}>Listen</button>'] : ring
+				});
+			}
+			const taken =
+				source !== 'demo' ? []
+				: [`// ${LEVEL_NOTE}`, fw === 'svelte' ? 'let { level } = $props();' : "defineProps(['level']);"];
+			const script = sections([names], hook, taken, sideNote, sideFn);
+			if (fw === 'svelte') return svelteFile(script, `${ring}${source === 'mic' ? '\n<button onclick={mic.start}>Listen</button>' : ''}`);
+			return vueFile(script, `${ring}${source === 'mic' ? '\n<button @click="mic.start">Listen</button>' : ''}`);
+		})
+	);
+
+	/* the steps of the prompt that are worded for the framework */
+	const STEPS: Record<Framework, { import: string; place: string; feed: string; notes: string[] }> = {
+		svelte: {
+			import: `Import it: import { VoiceRing, VoiceOrb, useMicrophone } from '${FRAMEWORKS.svelte.pkg}/voice-ring'`,
+			place: 'It renders one <canvas> of size × size CSS px.',
+			feed: `Either stream={mic.stream} from useMicrophone() (call mic.start from a
+   click, so the browser allows audio), analyser={node} for audio you already play, or
+   level={…} with a number from 0 to 1 or a function returning one.`,
+			notes: []
+		},
+		react: {
+			import: `Import it: import { VoiceRing, VoiceOrb, useMicrophone } from '${FRAMEWORKS.react.pkg}/voice-ring'`,
+			place: `It renders one <canvas> of size × size CSS px; className, style
+   and a ref go on that canvas.`,
+			feed: `Either stream={mic.stream} from the useMicrophone() hook (call
+   mic.start from a click, so the browser allows audio), analyser={node} for audio you
+   already play, or level={…} with a number from 0 to 1 or a function returning one.`,
+			notes: []
+		},
+		vue: {
+			import: `Import it: import { VoiceRing, VoiceOrb, useMicrophone } from '${FRAMEWORKS.vue.pkg}/voice-ring'`,
+			place: `It renders one <canvas> of size × size CSS px; class and style
+   fall through to that canvas.`,
+			feed: `Either :stream="mic.stream" from useMicrophone() (call it in setup,
+   read mic.stream from the object it returns without destructuring, and call mic.start
+   from a click, so the browser allows audio), :analyser="node" for audio you already play,
+   or :level="…" with a number from 0 to 1 or a function returning one.`,
+			notes: ['In a template, write the props in kebab-case: voiceSpeed is voice-speed, hoverBend is hover-bend.']
+		},
+		elements: {
+			import: `Import it once, which registers the <runeglow-voice-ring> and <runeglow-voice-orb> tags:
+   import '${FRAMEWORKS.elements.pkg}/voice-ring'
+   The microphone helper is in the same module: import { createMicrophone } from '${FRAMEWORKS.elements.pkg}/voice-ring'`,
+			place: `The element is an inline box of size × size CSS px, with its
+   canvas in a shadow root.`,
+			feed: `Either set the element's stream property from createMicrophone(), as
+   in mic.subscribe(() => (ring.stream = mic.stream)), calling mic.start from a click so the
+   browser allows audio; set its analyser property for audio you already play; or give it a
+   level, the attribute level="0.6" for a number from 0 to 1, or the level property for a
+   function returning one.`,
+			notes: [
+				`Every option is a property of the element in camelCase and, where text can say it, an
+  attribute in kebab-case: voiceSpeed is voice-speed. level and direction are written as
+  numbers, hover-bend alone or as a number, emotion-colors and opts as JSON.`,
+				`stream, analyser, directionBounds, a function for level or direction, onLevel, and frame on
+  <runeglow-voice-orb>, are properties only.`,
+				'The label attribute sets the accessible name, in place of the state.'
+			]
+		},
+		vanilla: {
+			import: `Import it: import { mountVoiceRing, mountVoiceOrb, createMicrophone } from '${FRAMEWORKS.vanilla.pkg}/voice-ring'`,
+			place: `mountVoiceRing(parent, options) and mountVoiceOrb(parent, options)
+   make one <canvas> of size × size CSS px inside the parent they are given.`,
+			feed: `Either ring.update({ stream: mic.stream }) from createMicrophone(),
+   inside mic.subscribe(…), calling mic.start from a click so the browser allows audio; the
+   analyser option for audio you already play; or the level option, a number from 0 to 1 or a
+   function returning one.`,
+			notes: [
+				`Both functions return { element, update, destroy }: the canvas, update(options), which
+  changes some options and keeps the rest, and destroy(), which stops it and removes the canvas.`,
+				'The class option sets the canvas’s class, and label its accessible name, in place of the state.'
+			]
 		}
-		if (key === 'emotionColors') {
-			const body = Object.entries(value as Record<string, { r: number; g: number; b: number }>)
-				.map(([k, v]) => `${k}: { r: ${v.r}, g: ${v.g}, b: ${v.b} }`)
-				.join(', ');
-			return `emotionColors={{ ${body} }}`;
-		}
-		return `${key}={${typeof value === 'number' ? num(value) : value}}`;
 	};
 
-	const tag = $derived(isRing ? 'VoiceRing' : 'VoiceOrb');
-	const snippet = $derived.by(() => {
-		const p = Object.entries(overrides).map(([k, v]) => attr(k, v));
-		p.unshift(`state="${s.state}"`);
-		if (s.pick === 'mono') p.unshift('type="mono"');
-		else if (!isRing) p.unshift(`type="${s.pick}"`);
-		const lines = [`  import { ${tag}${s.source === 'mic' ? ', useMicrophone' : ''} } from '${SITE.pkg}/voice-ring';`];
-		let after = '';
-		if (s.source === 'mic') {
-			lines.push('', '  const mic = useMicrophone();');
-			p.push('stream={mic.stream}');
-			after = '\n<button onclick={mic.start}>Listen</button>';
-		} else if (s.source === 'manual') {
-			p.push(`level={${num(s.manual / 100)}}`);
-		} else {
-			lines.push('', '  // A number from 0 to 1, or a function returning one, called every frame.', '  let { level } = $props();');
-			p.push('{level}');
-		}
-		if (s.direction === 'manual') {
-			lines.push('', '  // The side the voice comes from, -1 left to 1 right: from your own stereo or diarised input.');
-			p.push(`direction={${num(s.from)}}`);
-		} else if (s.direction === 'sway') {
-			lines.push('', '  // Called every frame: -1 left to 1 right.', '  const side = () => Math.sin(performance.now() / 1600);');
-			p.push('direction={side}');
-		}
-		const open = p.length <= 3 ? `<${tag} ${p.join(' ')} />` : `<${tag}\n  ${p.join('\n  ')}\n/>`;
-		return `<script>\n${lines.join('\n')}\n<\/script>\n\n${open}${after}`;
-	});
-
-	const prompt = $derived(`Add the Voice ring from ${SITE.name} to this Svelte 5 app: a ring of light, drawn on a canvas,
+	const prompt = $derived(
+		perFramework((fw, info) => {
+			const step = STEPS[fw];
+			/* what the two are called in this framework, and what an option is called */
+			const ring = fw === 'elements' ? '<runeglow-voice-ring>' : fw === 'vanilla' ? 'mountVoiceRing' : 'VoiceRing';
+			const orb = fw === 'elements' ? '<runeglow-voice-orb>' : fw === 'vanilla' ? 'mountVoiceOrb' : 'VoiceOrb';
+			const word = fw === 'elements' || fw === 'vanilla' ? 'options' : 'props';
+			return `Add the Voice ring from ${SITE.name} to this ${info.app}: a ring of light, drawn on a canvas,
 that bends with the level of a voice.
 
-1. Install the package with the project's package manager, for example: pnpm add ${SITE.pkg}
-2. Import it: import { VoiceRing, VoiceOrb, useMicrophone } from '${SITE.pkg}/voice-ring'
-3. Place it where the voice lives. It renders one <canvas> of size × size CSS px.
-4. Feed it sound. Either stream={mic.stream} from useMicrophone() (call mic.start from a
-   click, so the browser allows audio), analyser={node} for audio you already play, or
-   level={…} with a number from 0 to 1 or a function returning one.
+1. Install the package with the project's package manager, for example: pnpm add ${info.pkg}
+2. ${step.import}
+3. Place it where the voice lives. ${step.place}
+4. Feed it sound. ${step.feed}
 5. Set state to follow the conversation: idle, listening, speaking or processing.
 6. Start from this configuration:
 
-${snippet}
+${snippet[fw]}
 
 Parameter vocabulary, for later changes:
-- VoiceRing type: ring (a glassy spectrum) or mono (grey tube). VoiceOrb type: orbit, sash,
+- ${ring} type: ring (a glassy spectrum) or mono (grey tube). ${orb} type: orbit, sash,
   signal, swell, pixel, aura, aura-mono.
 - state: idle and processing ignore the source; listening and speaking follow it.
 - sensitivity, threshold, attack, release shape the response. idle is the breathing kept
   under the voice, calm the waiting pace, speed and voiceSpeed the motion.
 - emotion: positive, negative or calm tints it; emotionColors overrides a colour.
-- direction: -1 left to 1 right, a number or a function. The direction… props tune the lean.
+- direction: -1 left to 1 right, a number or a function. The direction… ${word} tune the lean.
 - hoverBend: bends toward the cursor while idle or processing.
 - opts: the type's own knobs, for example { rings: 8, halo: 0.7 }.
-- accent, saturation, neutral, gradientAngle and the other colour props apply to the ink
+- accent, saturation, neutral, gradientAngle and the other colour ${word} apply to the ink
   types (orbit, sash, signal, swell, pixel), not to ring or mono.
 
 Notes:
-- Nothing is recorded or played back: the stream is only analysed.
-- Under prefers-reduced-motion it holds a still frame.`);
+${step.notes.map((note) => `- ${note}\n`).join('')}- Nothing is recorded or played back: the stream is only analysed.
+- Under prefers-reduced-motion it holds a still frame.`;
+		})
+	);
 
 	const micNote = $derived.by(() => {
 		if (s.source !== 'mic') return '';

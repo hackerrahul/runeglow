@@ -13,7 +13,7 @@
 		type BotAvatarSquashEase,
 		type BotAvatarState,
 		type BotAvatarType
-	} from 'runeglow/bot-avatars';
+	} from '@runeglow/svelte/bot-avatars';
 	import CodeField from '#lib/components/CodeField.svelte';
 	import PanelGroup from '#lib/components/PanelGroup.svelte';
 	import PlaygroundShell from '#lib/components/PlaygroundShell.svelte';
@@ -21,6 +21,7 @@
 	import Slider from '#lib/components/Slider.svelte';
 	import SwatchRow from '#lib/components/SwatchRow.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
+	import { example, importStep, labelOption, perFramework, type Props } from '#lib/code.ts';
 	import { SITE } from '#lib/site.ts';
 	import type { SoftFamily } from './families.ts';
 
@@ -281,40 +282,21 @@
 		return o;
 	});
 
-	const attr = (key: string, value: unknown): string => {
-		if (key === 'path') return 'path={outline}';
-		if (typeof value === 'string') return `${key}="${value}"`;
-		if (value === true) return key;
-		if (value && typeof value === 'object') {
-			const body = Object.entries(value)
-				.map(([k, v]) => `${k}: ${v}`)
-				.join(', ');
-			return `${key}={{ ${body} }}`;
-		}
-		return `${key}={${value}}`;
-	};
+	const snippet = $derived(example({ component: 'BotAvatar', props: overrides as Props }));
 
-	const snippet = $derived.by(() => {
-		const p = Object.entries(overrides).map(([k, v]) => attr(k, v));
-		const decl = 'path' in overrides ? `\n\n  const outline = '${overrides.path}';` : '';
-		const tag =
-			p.length === 0 ? '<BotAvatar />'
-			: p.length <= 2 ? `<BotAvatar ${p.join(' ')} />`
-			: `<BotAvatar\n  ${p.join('\n  ')}\n/>`;
-		return `<script>\n  import { BotAvatar } from '${SITE.pkg}/bot-avatars';${decl}\n<\/script>\n\n${tag}`;
-	});
+	const prompt = $derived(
+		perFramework(
+			(fw, info) => `Add a Bot avatar from ${SITE.name} to this ${info.app}: an animated face for an AI agent.
 
-	const prompt = $derived(`Add a Bot avatar from ${SITE.name} to this Svelte 5 app: an animated face for an AI agent.
-
-1. Install the package with the project's package manager, for example: pnpm add ${SITE.pkg}
-2. Import the component: import { BotAvatar } from '${SITE.pkg}/bot-avatars'
+1. Install the package with the project's package manager, for example: pnpm add ${info.pkg}
+2. ${importStep(fw, 'BotAvatar')}
 3. Place it where the agent is shown: beside its messages, in a header, or as a status
    indicator. It renders one <canvas> that lays out at \`size\` and leaves room to hop.
 4. Use exactly this configuration:
 
-${snippet}
+${snippet[fw]}
 
-Parameter vocabulary, for later changes:
+Parameter vocabulary, for later changes${fw === 'elements' ? ' (as attributes, camelCase names become kebab-case: accessoryColor is accessory-color)' : ''}:
 - type: ${botAvatarTypes.map((t) => `"${t}"`).join(' | ')}
 - state: "default" (idle) | "working" (hopping, spinning) | "sleeping". Drive it from the
   agent's real status.
@@ -342,8 +324,10 @@ Parameter vocabulary, for later changes:
 
 Notes:
 - Fabric and plastic bake their material on idle time; the avatar fades in once ready.
-- It labels itself ("Clover bot, working"); pass aria-label to change the wording.
-- Under prefers-reduced-motion it shows the state's still pose.`);
+- It labels itself ("Clover bot, working"); pass ${labelOption(fw)} to change the wording.
+- Under prefers-reduced-motion it shows the state's still pose.`
+		)
+	);
 </script>
 
 {#snippet num(key: NumKey, label: string, min: number, max: number, step: number, unit: string)}

@@ -1,20 +1,26 @@
-import adapter from '@sveltejs/adapter-auto';
-import { sveltekit } from '@sveltejs/kit/vite';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
-export default defineConfig({
-	plugins: [
-		sveltekit({
-			compilerOptions: {
-				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
-				runes: ({ filename }) =>
-					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
-			},
+// One entry per library: every folder under src with an index.ts, except the
+// shared internals. Each is built to a file a browser can load as it is,
+// with what the entries share in chunks beside them.
+const src = fileURLToPath(new URL('./src', import.meta.url));
+const entry = Object.fromEntries(
+	readdirSync(src)
+		.filter((name) => name !== 'internal' && statSync(`${src}/${name}`).isDirectory())
+		.map((name) => [`${name}/index`, `${src}/${name}/index.ts`])
+);
+// The one entry inside a library: the thinking orbs' engine, on its own.
+if (existsSync(`${src}/thinking-orbs/engine/index.ts`)) entry['thinking-orbs/engine/index'] = `${src}/thinking-orbs/engine/index.ts`;
 
-			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-			adapter: adapter()
-		})
-	]
+export default defineConfig({
+	build: {
+		lib: { entry, formats: ['es'] },
+		// three is the app's to install (an optional peer, for image generation): never bundled in
+		rollupOptions: { external: ['three', /^three\//] },
+		target: 'es2022',
+		minify: false,
+		emptyOutDir: true
+	}
 });

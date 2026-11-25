@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ThinkingOrb, type OrbSize, type OrbState, type ThinkingOrbProps } from 'runeglow/thinking-orbs';
+	import { ThinkingOrb, type OrbSize, type OrbState, type ThinkingOrbProps } from '@runeglow/svelte/thinking-orbs';
 
 	interface Props extends Omit<ThinkingOrbProps, 'state' | 'size'> {
 		state: OrbState;

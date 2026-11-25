@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ThinkingOrb, type OrbState } from 'runeglow/thinking-orbs';
+	import { ThinkingOrb, type OrbState } from '@runeglow/svelte/thinking-orbs';
 	import CodeBlock from '#lib/components/CodeBlock.svelte';
 	import DocsShell from '#lib/components/DocsShell.svelte';
 	import InstallTabs from '#lib/components/InstallTabs.svelte';
@@ -7,7 +7,8 @@
 	import PropsTable, { type PropRow } from '#lib/components/PropsTable.svelte';
 	import OrbPill from '#lib/demos/thinking-orbs/OrbPill.svelte';
 	import Playground from '#lib/demos/thinking-orbs/Playground.svelte';
-	import { SITE } from '#lib/site.ts';
+	import { example, fragment, importLine, labelOption, perFramework, type Framework, type FrameworkCode } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 
 	const STATES: { state: OrbState; what: string }[] = [
 		{ state: 'working', what: 'Particles on tilted orbits' },
@@ -21,14 +22,14 @@
 		{ state: 'shaping', what: 'Circle to triangle to square' }
 	];
 
-	const quickStart = `<script>
-  import { ThinkingOrb } from '${SITE.pkg}/thinking-orbs';
-<\/script>
+	const importOnly = perFramework((fw) => importLine(fw, 'thinking-orbs', [fw === 'vanilla' ? 'mountThinkingOrb' : 'ThinkingOrb']));
 
-<ThinkingOrb state="searching" />`;
+	const quickStart = example({ component: 'ThinkingOrb', props: { state: 'searching' }, target: '#status', variable: 'orb' });
 
-	const inline = `<script>
-  import { ThinkingOrb } from '${SITE.pkg}/thinking-orbs';
+	/* showing the line only while the app is busy is each framework's own business */
+	const inline: FrameworkCode = {
+		svelte: `<script>
+  import { ThinkingOrb } from '@runeglow/svelte/thinking-orbs';
 
   let busy = $state(true);
 <\/script>
@@ -38,23 +39,90 @@
     <ThinkingOrb state="working" size={20} aria-hidden="true" />
     Working…
   </p>
-{/if}`;
+{/if}`,
+		react: `import { useState } from 'react';
+import { ThinkingOrb } from '@runeglow/react/thinking-orbs';
 
-	const tuned = `<ThinkingOrb
-  state="connecting"
-  color="#7cd4ff"
-  speed={1.4}
-  dots={1.5}
-  opts={{ thr: 0.9, signals: 8 }}
-/>`;
+export function Status() {
+  const [busy, setBusy] = useState(true);
+  if (!busy) return null;
 
-	const engine = `import { resolvePreset, MODE_FRAMES } from '${SITE.pkg}/thinking-orbs/engine';
+  return (
+    <p className="status">
+      <ThinkingOrb state="working" size={20} aria-hidden="true" />
+      Working…
+    </p>
+  );
+}`,
+		vue: `<script setup>
+import { ref } from 'vue';
+import { ThinkingOrb } from '@runeglow/vue/thinking-orbs';
+
+const busy = ref(true);
+<\/script>
+
+<template>
+  <p v-if="busy" class="status">
+    <ThinkingOrb state="working" :size="20" aria-hidden="true" />
+    Working…
+  </p>
+</template>`,
+		elements: `<script type="module">
+  import '@runeglow/elements/thinking-orbs';
+
+  // call it whenever the app starts or stops being busy
+  function setBusy(busy) {
+    document.querySelector('.status').hidden = !busy;
+  }
+<\/script>
+
+<p class="status">
+  <runeglow-thinking-orb state="working" size="20" aria-hidden="true"></runeglow-thinking-orb>
+  Working…
+</p>`,
+		vanilla: `import { mountThinkingOrb } from 'runeglow/thinking-orbs';
+
+// <p class="status"><span id="orb"></span> Working…</p>
+const orb = mountThinkingOrb(document.querySelector('#orb'), { state: 'working', size: 20 });
+// the words beside it say the same thing, so the canvas is hidden from screen readers
+orb.element.setAttribute('aria-hidden', 'true');
+
+// call it whenever the app starts or stops being busy
+function setBusy(busy) {
+  document.querySelector('.status').hidden = !busy;
+}`
+	};
+
+	const tuned = fragment(
+		[{ component: 'ThinkingOrb', props: { state: 'connecting', color: '#7cd4ff', speed: 1.4, dots: 1.5, opts: { thr: 0.9, signals: 8 } } }],
+		{ target: '#status' }
+	);
+
+	/* The engine is the core's. Only the Svelte package has an entry of its
+	   own for it; everywhere else it is imported from the core package. */
+	const engine = perFramework((fw, info) => {
+		const from = fw === 'svelte' ? `${info.pkg}/thinking-orbs/engine` : 'runeglow/thinking-orbs/engine';
+		const note =
+			fw === 'svelte' || fw === 'vanilla'
+				? ''
+				: `// The engine is in the core package, runeglow, which ${info.pkg} is built on:\n// add runeglow to the project's own dependencies to import from it. The same two\n// names are also exported from ${info.pkg}/thinking-orbs.\n`;
+		return `${note}import { resolvePreset, MODE_FRAMES } from '${from}';
 
 const { mode, speed, opts } = resolvePreset('searching', 64);
 const { dots, lines } = MODE_FRAMES[mode](64, seconds * speed, opts);
 // dots and lines are z-sorted and final: draw them in order.`;
+	});
 
-	const props: PropRow[] = [
+	/* the size that sits in a line of text, as each framework writes it */
+	const inlineSize: Record<Framework, string> = {
+		svelte: 'size={20}',
+		react: 'size={20}',
+		vue: ':size="20"',
+		elements: 'size="20"',
+		vanilla: 'size: 20'
+	};
+
+	const options: PropRow[] = [
 		{ name: 'state', type: "'working' | 'searching' | 'solving' | 'listening' | 'connecting' | 'weaving' | 'composing' | 'breathing' | 'shaping'", default: "'working'", description: 'Which animation to show.' },
 		{ name: 'size', type: '64 | 32 | 20', default: '64', description: 'A tuned preset, not a scale factor. 64 is avatar scale, 20 sits inline with text, 32 is interpolated between them.' },
 		{ name: 'theme', type: "'auto' | 'dark' | 'light'", default: "'auto'", description: 'auto follows a data-theme attribute or dark/light class on an ancestor, then prefers-color-scheme. dark draws light dots, light draws dark dots.' },
@@ -65,10 +133,35 @@ const { dots, lines } = MODE_FRAMES[mode](64, seconds * speed, opts);
 		{ name: 'dotSize', type: 'number', default: '1', description: 'Radius multiplier for every dot.' },
 		{ name: 'opts', type: 'ModeOpts', description: 'Raw engine options merged over the preset. Which keys do something depends on the state; the playground lists them.' },
 		{ name: 'frame', type: 'ModeFrame', description: 'Replaces the state’s geometry with your own function: (size, t, opts) => { dots, lines }.' },
-		{ name: 'gravity', type: 'boolean | GravityOptions', description: 'Bends a drawn pointer toward the orb as it comes near. Needs a pointer raster as gravity.sprite.' },
-		{ name: 'ref', type: 'HTMLCanvasElement | null', description: 'The canvas element. Bindable with bind:ref.' },
-		{ name: '...rest', type: 'HTMLCanvasAttributes', description: 'class, style, aria-label and any other attribute are forwarded to the canvas.' }
+		{ name: 'gravity', type: 'boolean | GravityOptions', description: 'Bends a drawn pointer toward the orb as it comes near. Needs a pointer raster as gravity.sprite.' }
 	];
+
+	/* how the canvas itself is reached, which each framework does its own way */
+	const reach: Record<Framework, PropRow[]> = {
+		svelte: [
+			{ name: 'ref', type: 'HTMLCanvasElement | null', description: 'The canvas element. Bindable with bind:ref.' },
+			{ name: '...rest', type: 'HTMLCanvasAttributes', description: 'class, style, aria-label and any other attribute are forwarded to the canvas.' }
+		],
+		react: [
+			{ name: 'ref', type: 'Ref<HTMLCanvasElement>', description: 'Reaches the canvas element.' },
+			{ name: '...rest', type: 'CanvasHTMLAttributes', description: 'className, style, aria-label and any other attribute are forwarded to the canvas.' }
+		],
+		vue: [
+			{ name: 'template ref', type: '{ element }', description: 'A ref on the component gives the canvas as element.' },
+			{ name: 'attributes', type: 'fallthrough', description: 'class, style, aria-label and other attributes fall through to the canvas.' }
+		],
+		elements: [
+			{ name: 'label', type: 'string', description: 'The accessible name, in place of the one the orb takes from its state.' },
+			{ name: 'properties', type: 'camelCase', description: 'Every option is also a property: dotSize in JavaScript is dot-size in HTML.' },
+			{ name: 'attributes', type: 'text', description: 'opts and gravity are written as JSON, and gravity alone, with no value, takes the defaults. frame is a function, so it is a property only. paused is on when it is there.' },
+			{ name: 'shadow root', type: 'open', description: 'The canvas is in the tag’s shadow root, so the page’s styles do not reach it. The tag lays out like an image.' }
+		],
+		vanilla: [
+			{ name: 'class', type: 'string', description: 'A class for the canvas.' },
+			{ name: 'label', type: 'string', description: 'The accessible name, in place of the one the orb takes from its state.' },
+			{ name: 'returns', type: '{ element, update, destroy }', description: 'The canvas; update(options) changes some options and keeps the rest; destroy() stops the orb and removes the canvas.' }
+		]
+	};
 
 	const gravityOpts: PropRow[] = [
 		{ name: 'sprite', type: 'CursorSprite', description: 'The pointer raster: { src, width, height, hotX, hotY }. Without one, gravity stays off.' },
@@ -117,7 +210,7 @@ const { dots, lines } = MODE_FRAMES[mode](64, seconds * speed, opts);
 		<h2>Install</h2>
 		<div class="stack">
 			<InstallTabs registry="thinking-orbs" />
-			<CodeBlock code={`import { ThinkingOrb } from '${SITE.pkg}/thinking-orbs';`} copyLabel="Copy import" />
+			<CodeBlock code={importOnly} copyLabel="Copy import" />
 		</div>
 	</section>
 
@@ -126,8 +219,8 @@ const { dots, lines } = MODE_FRAMES[mode](64, seconds * speed, opts);
 		<p class="text">One element, no wrapper. It draws on a plain 2D canvas, so there is no WebGL to set up.</p>
 		<CodeBlock code={quickStart} />
 		<p class="text">
-			At <code class="icode">size={'{20}'}</code> it sits inline with text. When a visible label says
-			the same thing, hide the orb from screen readers.
+			At <code class="icode">{inlineSize[framework.id]}</code> it sits inline with text. When a visible
+			label says the same thing, hide the orb from screen readers.
 		</p>
 		<CodeBlock code={inline} />
 		<p class="text">
@@ -136,15 +229,15 @@ const { dots, lines } = MODE_FRAMES[mode](64, seconds * speed, opts);
 		</p>
 		<CodeBlock code={tuned} />
 		<p class="text">
-			The geometry is also available on its own, with no Svelte and no DOM, for drawing on a canvas
-			of your own.
+			The geometry is also available on its own, with no framework and no DOM, for drawing on a
+			canvas of your own.
 		</p>
 		<CodeBlock code={engine} />
 	</section>
 
 	<section id="props">
 		<h2>Props</h2>
-		<PropsTable rows={props} />
+		<PropsTable rows={[...options, ...reach[framework.id]]} />
 	</section>
 
 	<section id="gravity">
@@ -157,7 +250,7 @@ const { dots, lines } = MODE_FRAMES[mode](64, seconds * speed, opts);
 		<ul class="notes">
 			<li>
 				Each orb labels itself from its state (“Searching…”). Pass
-				<code class="icode">aria-label</code> to change the wording.
+				<code class="icode">{labelOption(framework.id)}</code> to change the wording.
 			</li>
 			<li>
 				Orbs pause while offscreen or in a hidden tab, and show a single still frame under

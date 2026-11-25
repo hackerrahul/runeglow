@@ -1,4 +1,4 @@
-import type { VoiceBeamMotion } from 'runeglow/voice-glow';
+import type { VoiceBeamMotion } from '@runeglow/svelte/voice-glow';
 
 /* A synthetic speech envelope, so the effect can be judged without a
    microphone: syllables riding on words, in phrases with a pause between. */

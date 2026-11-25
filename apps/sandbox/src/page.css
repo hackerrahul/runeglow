@@ -1,0 +1,11 @@
+:root { color-scheme: dark; }
+body { margin: 0; padding: 24px 36px; background: #121212; color: #eee; font: 14px/1.5 system-ui, sans-serif; }
+nav { display: grid; gap: 4px; margin-bottom: 18px; font-size: 13px; }
+nav div { display: flex; gap: 12px; }
+nav b { width: 150px; font-weight: 500; color: #aaa; }
+nav a { color: #9cf; }
+nav a[aria-current] { color: #fff; text-decoration: none; font-weight: 600; }
+h1 { margin: 0 0 22px; font-size: 22px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 40px; padding: 44px 30px; border-radius: 16px; background: #171717; }
+button { height: 30px; padding: 0 14px; border: 0; border-radius: 999px; background: #2b2b2b; color: #eee; font: inherit; cursor: pointer; }
+output { margin-left: 10px; color: #aaa; font-family: ui-monospace, monospace; }

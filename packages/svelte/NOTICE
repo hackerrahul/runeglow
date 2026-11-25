@@ -1,0 +1,6 @@
+@runeglow/svelte
+
+The Svelte 5 components of Runeglow. They are new; the engines they drive are
+in the `runeglow` package, which this one depends on. That package's NOTICE
+says where the engines come from (Libraries.dev by Jakub Antalik, MIT) and
+lists the third-party code in them.

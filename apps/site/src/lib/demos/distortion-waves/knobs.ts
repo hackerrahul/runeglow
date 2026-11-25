@@ -1,4 +1,4 @@
-import type { WaveStyle } from 'runeglow/distortion-waves';
+import type { WaveStyle } from '@runeglow/svelte/distortion-waves';
 
 /* The wave's numbers, grouped as they act. Lengths are in points, which grow
    with `scale`. */

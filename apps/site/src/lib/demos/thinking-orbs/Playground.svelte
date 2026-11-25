@@ -10,12 +10,13 @@
 		type OrbSize,
 		type OrbState,
 		type OrbTheme
-	} from 'runeglow/thinking-orbs';
+	} from '@runeglow/svelte/thinking-orbs';
 	import PanelGroup from '#lib/components/PanelGroup.svelte';
 	import PlaygroundShell from '#lib/components/PlaygroundShell.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import Slider from '#lib/components/Slider.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
+	import { expr, importLine, importStep, options, perFramework, properties, tag, type Props } from '#lib/code.ts';
 	import { SITE } from '#lib/site.ts';
 	import { arrowCursor } from './cursor.ts';
 	import OrbPill from './OrbPill.svelte';
@@ -247,54 +248,107 @@
 		adv = { ...adv, [orb]: rest };
 	}
 
-	const snippet = $derived.by(() => {
-		const p: string[] = [`state="${orb}"`];
-		if (size !== 64) p.push(`size={${size}}`);
-		if (theme !== 'auto') p.push(`theme="${theme}"`);
-		if (speed !== 100) p.push(`speed={${num(speed / 100)}}`);
-		if (paused) p.push('paused');
-		if (ink) p.push(`color="${ink}"`);
-		if (dots !== 1) p.push(`dots={${num(dots)}}`);
-		if (dotSize !== 1) p.push(`dotSize={${num(dotSize)}}`);
-		if (hasOpts) {
-			const body = Object.entries(engineOpts)
-				.map(([k, v]) => `${k}: ${num(v)}`)
-				.join(', ');
-			p.push(`opts={{ ${body} }}`);
-		}
-		if (frameMode === 'custom') p.push('frame={spiral}');
-		if (gravity) {
-			const body = ['sprite: cursor', ...gravityOverrides.map(([k, v]) => `${k}: ${num(v)}`)].join(', ');
-			p.push(`gravity={{ ${body} }}`);
-		}
-
-		const imports = [`  import { ThinkingOrb${frameMode === 'custom' ? ', finalizeFrame, radiusScale' : ''} } from '${SITE.pkg}/thinking-orbs';`];
-		if (gravity) {
-			imports.push("  // A raster of the pointer to draw near the orb: { src, width, height, hotX, hotY }.");
-			imports.push("  import { cursor } from './cursor';");
-		}
-		const decl =
-			frameMode === 'custom'
-				? `\n\n${spiralSource
-						.split('\n')
-						.map((l) => `  ${l}`)
-						.join('\n')}`
-				: '';
-		const tag = p.length <= 2 ? `<ThinkingOrb ${p.join(' ')} />` : `<ThinkingOrb\n  ${p.join('\n  ')}\n/>`;
-		return `<script>\n${imports.join('\n')}${decl}\n<\/script>\n\n${tag}`;
+	/* Every option that differs from the library's default, as data: each
+	   framework's text below is written from this one object. `spiral` and
+	   `cursor` are names the code declares or imports, not values. */
+	const overrides = $derived.by(() => {
+		const o: Props = { state: orb };
+		if (size !== 64) o.size = size;
+		if (theme !== 'auto') o.theme = theme;
+		if (speed !== 100) o.speed = +num(speed / 100);
+		if (paused) o.paused = true;
+		if (ink) o.color = ink;
+		if (dots !== 1) o.dots = +num(dots);
+		if (dotSize !== 1) o.dotSize = +num(dotSize);
+		if (hasOpts) o.opts = Object.fromEntries(Object.entries(engineOpts).map(([k, v]) => [k, +num(v)]));
+		if (frameMode === 'custom') o.frame = expr('spiral');
+		if (gravity) o.gravity = { sprite: expr('cursor'), ...Object.fromEntries(gravityOverrides.map(([k, v]) => [k, +num(v)])) };
+		return o;
 	});
 
-	const prompt = $derived(`Add a Thinking orb loading indicator from ${SITE.name} to this Svelte 5 app.
+	const pad = (text: string, by: string) =>
+		text
+			.split('\n')
+			.map((line) => (line ? by + line : line))
+			.join('\n');
 
-1. Install the package with the project's package manager, for example: pnpm add ${SITE.pkg}
-2. Import the component: import { ThinkingOrb } from '${SITE.pkg}/thinking-orbs'
+	const snippet = $derived(
+		perFramework((fw, info) => {
+			const custom = frameMode === 'custom';
+			/* a custom frame is written with two helpers from the same entry */
+			const names = [
+				...(fw === 'elements' ? [] : [fw === 'vanilla' ? 'mountThinkingOrb' : 'ThinkingOrb']),
+				...(custom ? ['finalizeFrame', 'radiusScale'] : [])
+			];
+			/* the elements entry registers the tag on import, with or without names */
+			const first = names.length ? `import { ${names.join(', ')} } from '${info.pkg}/thinking-orbs';` : importLine(fw, 'thinking-orbs', []);
+			const imports = [first];
+			if (gravity) {
+				imports.push('// A raster of the pointer to draw near the orb: { src, width, height, hotX, hotY }.');
+				imports.push("import { cursor } from './cursor';");
+			}
+			const head = imports.join('\n');
+			const decl = custom ? `\n\n${spiralSource}` : '';
+
+			if (fw === 'vanilla') {
+				const opts = options(overrides);
+				return `${head}${decl}\n\n// makes its canvas inside #status\nconst orb = mountThinkingOrb(document.querySelector('#status'), ${opts});`;
+			}
+			const markup = tag(fw, 'ThinkingOrb', overrides);
+			if (fw === 'svelte') return `<script>\n${pad(head + decl, '  ')}\n<\/script>\n\n${markup}`;
+			if (fw === 'vue') return `<script setup>\n${head}${decl}\n<\/script>\n\n<template>\n${pad(markup, '  ')}\n</template>`;
+			if (fw === 'react') {
+				const body = markup.includes('\n') ? `(\n${pad(markup, '    ')}\n  )` : markup;
+				return `${head}${decl}\n\nexport function Example() {\n  return ${body};\n}`;
+			}
+			/* an attribute holds text, so what is code (the frame function, the
+			   imported sprite) is set as a property from the script */
+			const set = properties('orb', overrides);
+			const script = set.length
+				? `\n\nconst orb = document.querySelector('runeglow-thinking-orb');\n// an attribute holds text: what is code is set as a property\n${set.join('\n')}`
+				: '';
+			return `<script type="module">\n${pad(head + decl + script, '  ')}\n<\/script>\n\n${markup}`;
+		})
+	);
+
+	/* the parts of the prompt that are not the same in every framework */
+	const RENDERS = {
+		svelte: 'It renders one <canvas>.',
+		react: 'It renders one <canvas>.',
+		vue: 'It renders one <canvas>.',
+		elements: `The tag draws on one <canvas>
+   in its shadow root and lays out like an image.`,
+		vanilla: `mountThinkingOrb makes one
+   <canvas> inside the element it is given and returns { element, update, destroy }:
+   update(options) changes some options and keeps the rest, and destroy() removes the
+   canvas.`
+	} as const;
+	const LABELLING = {
+		svelte: `pass aria-label to override it, or
+  aria-hidden="true" when a visible label sits next to it.`,
+		react: `pass aria-label to override it, or
+  aria-hidden="true" when a visible label sits next to it.`,
+		vue: `pass aria-label to override it, or
+  aria-hidden="true" when a visible label sits next to it.`,
+		elements: `set the label attribute to override
+  it, or put aria-hidden="true" on the tag when a visible label sits next to it.`,
+		vanilla: `pass label to override it, or set
+  aria-hidden="true" on the returned element when a visible label sits next to it.`
+	} as const;
+
+	const prompt = $derived(
+		perFramework(
+			(fw, info) => `Add a Thinking orb loading indicator from ${SITE.name} to this ${info.app}.
+
+1. Install the package with the project's package manager, for example: pnpm add ${info.pkg}
+2. ${importStep(fw, 'ThinkingOrb')}
 3. Place it where the app shows that an agent or request is busy: next to a status
-   label, as a chat avatar, or inline in a line of text. It renders one <canvas>.
+   label, as a chat avatar, or inline in a line of text. ${RENDERS[fw]}
 4. Use exactly this configuration:
 
-${snippet}
+${snippet[fw]}
 
-Parameter vocabulary, for later changes:
+Parameter vocabulary, for later changes${fw === 'elements' ? ' (as attributes, camelCase names become kebab-case: dotSize is dot-size)' : ''}:
 - state: "working" | "searching" | "solving" | "listening" | "connecting" | "weaving" |
   "composing" | "breathing" | "shaping". Pick the verb that matches what the app is doing.
 - size: 64 (avatar scale, default) | 32 | 20 (inline with text). These are tuned presets,
@@ -308,16 +362,17 @@ Parameter vocabulary, for later changes:
 - dotSize: radius multiplier for every dot (1 default)
 - opts: raw engine options merged over the preset, per state: ghostA, particles (working);
   scanMul, dimBase (searching); thr, signals, lineW, spread (connecting); turns (weaving);
-  wobMul, bandMul, spin (composing, breathing); spread, shape 0|1|2 (shaping)
-- frame: a function (size, t, opts) => { dots, lines } that replaces the state's geometry
+  wobMul, bandMul, spin (composing, breathing); spread, shape 0|1|2 (shaping)${fw === 'elements' ? '.\n  As an attribute it is written as JSON.' : ''}
+- frame: a function (size, t, opts) => { dots, lines } that replaces the state's geometry${fw === 'elements' ? '.\n  It is a property of the element only: a function cannot be written as an attribute.' : ''}
 - gravity: true or an options object; bends a drawn pointer toward the orb. It needs a
-  pointer raster passed as gravity.sprite ({ src, width, height, hotX, hotY }).
+  pointer raster passed as gravity.sprite ({ src, width, height, hotX, hotY }).${fw === 'elements' ? '\n  As an attribute it is JSON, or bare for the defaults; set it as a property when the\n  sprite comes from a script.' : ''}
 
 Notes:
-- The orb sets its own aria-label from the state; pass aria-label to override it, or
-  aria-hidden="true" when a visible label sits next to it.
+- The orb sets its own aria-label from the state; ${LABELLING[fw]}
 - It pauses itself offscreen and in hidden tabs, and shows one still frame under
-  prefers-reduced-motion.`);
+  prefers-reduced-motion.`
+		)
+	);
 </script>
 
 <PlaygroundShell

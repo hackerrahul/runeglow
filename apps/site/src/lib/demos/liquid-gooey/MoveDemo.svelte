@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Liquid } from 'runeglow/liquid-gooey';
+	import { Liquid } from '@runeglow/svelte/liquid-gooey';
 	import './demos.css';
 	import { MOVE_DEFAULTS, groupProps, type GooeyTheme, type GroupTuning, type MoveKnobs } from './shared.ts';
 

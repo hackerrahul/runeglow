@@ -1,16 +1,25 @@
 <script lang="ts">
+	import { codeFor, type Code } from '#lib/code.ts';
+	import { framework } from '#lib/framework.svelte.ts';
 	import { highlightShell, highlightSvelte } from '#lib/highlight.ts';
 	import CopyButton from './CopyButton.svelte';
+	import FrameworkTabs from './FrameworkTabs.svelte';
 
 	interface Props {
-		code: string;
+		/** One text, or one per framework: then the block has framework tabs and shows the chosen one. */
+		code: Code;
+		/** With a text per framework: leave the tabs out, where a bar above the block already has them. */
+		tabs?: boolean;
 		lang?: 'svelte' | 'shell' | 'text';
 		copyLabel?: string;
 		/** Cap the height and scroll inside, for long blocks. */
 		maxHeight?: number;
 	}
 
-	let { code, lang = 'svelte', copyLabel = 'Copy code', maxHeight }: Props = $props();
+	let { code: given, tabs = true, lang = 'svelte', copyLabel = 'Copy code', maxHeight }: Props = $props();
+
+	const code = $derived(codeFor(given, framework.id));
+	const tabbed = $derived(tabs && typeof given !== 'string');
 
 	const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	const html = $derived(
@@ -18,7 +27,8 @@
 	);
 </script>
 
-<div class="code">
+<div class="code" class:tabbed>
+	{#if tabbed}<div class="fw-bar"><FrameworkTabs /></div>{/if}
 	<div class="copy-slot"><CopyButton text={code} label={copyLabel} /></div>
 	<pre style:max-height={maxHeight ? `${maxHeight}px` : undefined}><code>{@html html}</code></pre>
 </div>
@@ -29,6 +39,10 @@
 		border-radius: 14px;
 		background: var(--card);
 		box-shadow: inset 0 0 0 1px var(--line);
+	}
+	.fw-bar {
+		/* room on the right for the copy button, which sits on the same line */
+		padding: 10px 52px 0 10px;
 	}
 	.copy-slot {
 		position: absolute;

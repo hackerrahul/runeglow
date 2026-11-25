@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MetalFx, useMetalBend } from 'runeglow/metal-fx';
+	import { MetalFx, useMetalBend } from '@runeglow/svelte/metal-fx';
 	import './demo.css';
 
 	/* A chat composer whose send button is a metal ring: the ring dents under

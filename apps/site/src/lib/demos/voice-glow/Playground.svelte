@@ -9,7 +9,7 @@
 		type VoiceBeamTheme,
 		type VoiceBeamType,
 		type VoiceGeometry
-	} from 'runeglow/voice-glow';
+	} from '@runeglow/svelte/voice-glow';
 	import CodeField from '#lib/components/CodeField.svelte';
 	import PanelGroup from '#lib/components/PanelGroup.svelte';
 	import PlaygroundShell from '#lib/components/PlaygroundShell.svelte';
@@ -18,10 +18,12 @@
 	import SwatchRow from '#lib/components/SwatchRow.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
 	import Subject from '#lib/demos/border-beam/Subject.svelte';
+	import { FRAMEWORKS, attrs, expr, options, perFramework, type Framework, type PropValue, type Props } from '#lib/code.ts';
 	import { SITE } from '#lib/site.ts';
 	import PhoneScreen from './PhoneScreen.svelte';
 	import RecordingPill from './RecordingPill.svelte';
 	import { createMicInput } from './micInput.svelte.ts';
+	import { htmlFile, openTag, pad, reactFile, sections, svelteFile, vueFile } from './snippets.ts';
 	import { createTranscript } from './transcript.svelte.ts';
 	import { MIC_STATUS, SWEEP_DEFAULTS, createSweep, demoGetter } from './voice.ts';
 
@@ -297,70 +299,213 @@
 		s = fresh();
 	}
 
-	const attr = (key: string, value: unknown): string => {
-		if (key === 'css') return 'css={voiceCss}';
-		if (typeof value === 'string') return `${key}="${value}"`;
-		if (value === true) return key;
-		if (Array.isArray(value)) return `${key}={[${value.map((v) => `'${v}'`).join(', ')}]}`;
-		if (value && typeof value === 'object') {
-			const body = Object.entries(value)
-				.map(([k, v]) => `${k}: '${v}'`)
-				.join(', ');
-			return `${key}={{ ${body} }}`;
-		}
-		return `${key}={${typeof value === 'number' ? num(value) : value}}`;
+	/* What each type wraps: a component in a framework, the page's own markup
+	   elsewhere, and the id of the wrapper a page with no framework mounts on. */
+	const HOSTS: Record<VoiceBeamType, { child: string; html: string; id: string; what: string }> = {
+		default: { child: '<ChatInput />', html: '<div class="chat-input">…</div>', id: 'composer', what: 'chat input' },
+		pill: { child: '<RecordingPill />', html: '<div class="recording-pill">…</div>', id: 'recorder', what: 'recording pill' },
+		mobile: { child: '<VoiceScreen />', html: '<div class="voice-screen">…</div>', id: 'screen', what: 'voice screen' }
 	};
 
-	const CHILD: Record<VoiceBeamType, string> = {
-		default: '<ChatInput />',
-		pill: '<RecordingPill />',
-		mobile: '<VoiceScreen />'
-	};
+	const LEVEL_NOTE = 'A number from 0 to 1, or a function returning one, called every frame.';
 
-	const snippet = $derived.by(() => {
-		const p = Object.entries(overrides).map(([k, v]) => attr(k, v));
-		const lines = [`  import { VoiceBeam${s.source === 'mic' ? ', useMicrophone' : ''} } from '${SITE.pkg}/voice-glow';`];
-		let before = '';
-		if (s.source === 'mic') {
-			lines.push('', '  const mic = useMicrophone();');
-			p.unshift('stream={mic.stream}');
-			before = '<button onclick={mic.start}>Listen</button>\n\n';
-		} else if (s.source === 'manual') {
-			p.unshift(`level={${num(s.manual / 100)}}`);
-		} else if (s.source === 'sweep') {
-			lines.push(
-				'',
-				'  // Called every frame. gather pulls the glow into one beam; offset moves it.',
-				'  const sweep = () => ({',
-				'    gather: 1,',
-				`    offset: Math.sin((performance.now() / 1000 / ${num(s.sweep.duration)}) * Math.PI) * ${num(s.sweep.travel)},`,
-				`    heldLevel: ${num(s.sweep.level)}`,
-				'  });'
-			);
-			p.unshift('motion={sweep}');
-		} else {
-			lines.push('', '  // A number from 0 to 1, or a function returning one, called every frame.', '  let { level } = $props();');
-			p.unshift('{level}');
+	/* The overrides as the code shows them: numbers rounded, and the extra CSS
+	   by the name of the constant that holds it. */
+	const shown = $derived.by(() => {
+		const p: Props = {};
+		for (const [k, v] of Object.entries(overrides)) {
+			p[k] = k === 'css' ? expr('voiceCss') : typeof v === 'number' ? +v.toFixed(3) : (v as PropValue);
 		}
-		if (extraCss) lines.push('', `  const voiceCss = \`\n${extraCss.split('\n').map((l) => `    ${l}`).join('\n')}\n  \`;`);
-		const open = p.length <= 2 ? `<VoiceBeam ${p.join(' ')}>` : `<VoiceBeam\n  ${p.join('\n  ')}\n>`;
-		return `<script>\n${lines.join('\n')}\n<\/script>\n\n${before}${open}\n  ${CHILD[s.type]}\n</VoiceBeam>`;
+		return p;
 	});
 
-	const prompt = $derived(`Add the Voice glow from ${SITE.name} to this Svelte 5 app: a coloured beam along the bottom
+	/* The sweep's motion and the extra CSS, as the lines that define them:
+	   `to` is what they are assigned to. */
+	const sweepLines = (to: string) => [
+		'// Called every frame. gather pulls the glow into one beam; offset moves it.',
+		`${to} = () => ({`,
+		'  gather: 1,',
+		`  offset: Math.sin((performance.now() / 1000 / ${num(s.sweep.duration)}) * Math.PI) * ${num(s.sweep.travel)},`,
+		`  heldLevel: ${num(s.sweep.level)}`,
+		'});'
+	];
+	const cssLines = (to: string) => (extraCss ? [`${to} = \`\n${pad(extraCss, '  ')}\n\`;`] : []);
+
+	const snippet = $derived(
+		perFramework((fw) => {
+			const from = `'${FRAMEWORKS[fw].pkg}/voice-glow'`;
+			const host = HOSTS[s.type];
+			const source = s.source;
+			const level = num(s.manual / 100);
+
+			if (fw === 'elements') {
+				/* text goes in attributes; a stream, a function and the CSS are set as properties */
+				const list = attrs(fw, shown);
+				if (source === 'manual') list.unshift(`level="${level}"`);
+				const scripted = source !== 'manual' || !!extraCss;
+				const script = sections(
+					[source === 'mic' ? `import { createMicrophone } from ${from};` : `import ${from};`],
+					scripted
+						? ["const beam = document.querySelector('runeglow-voice-beam');", ...(source === 'mic' ? ['const mic = createMicrophone();'] : [])]
+						: [],
+					source === 'mic'
+						? [
+								'// A stream is a property: no attribute can carry it.',
+								'mic.subscribe(() => (beam.stream = mic.stream));',
+								"document.querySelector('#listen').addEventListener('click', mic.start);"
+							]
+						: source === 'demo'
+							? [`// Your own level. ${LEVEL_NOTE}`, '// A function is a property: no attribute can carry it.', 'beam.level = () => meter.level;']
+							: source === 'sweep'
+								? sweepLines('beam.motion')
+								: [],
+					cssLines('beam.css')
+				);
+				const before = source === 'mic' ? '<button id="listen">Listen</button>\n\n' : '';
+				return htmlFile(script, `${before}${openTag('runeglow-voice-beam', list)}\n  ${host.html}\n</runeglow-voice-beam>`);
+			}
+
+			if (fw === 'vanilla') {
+				/* the hue shift is a custom property of the wrapper, which is the page's own element */
+				const { style: _style, ...rest } = shown;
+				const first: Props =
+					source === 'manual' ? { level: +level }
+					: source === 'demo' ? { level: expr('() => meter.level') }
+					: source === 'sweep' ? { motion: expr('sweep') }
+					: {};
+				const opts = options({ ...first, ...rest });
+				return sections(
+					[`import { mountVoiceBeam${source === 'mic' ? ', createMicrophone' : ''} } from ${from};`],
+					source === 'sweep' ? sweepLines('const sweep') : [],
+					cssLines('const voiceCss'),
+					[
+						`// <div id="${host.id}">${host.html}</div>`,
+						`// The beam is put on the wrapper, and glows along the bottom of the ${host.what} inside.`,
+						...(source === 'demo' ? [`// level is yours to supply. ${LEVEL_NOTE}`] : []),
+						`const beam = mountVoiceBeam(document.querySelector('#${host.id}')${opts ? `, ${opts}` : ''});`,
+						...(source === 'mic' ? ['const mic = createMicrophone();'] : [])
+					],
+					styleAttr ? [`beam.element.style.setProperty('--voice-hue-base', '${s.hueShift}deg');`] : [],
+					source === 'mic'
+						? ['mic.subscribe(() => beam.update({ stream: mic.stream }));', "document.querySelector('#listen').addEventListener('click', mic.start);"]
+						: []
+				);
+			}
+
+			/* a component: the source is its first prop, then every override */
+			const bind = (name: string, value: string) => (fw === 'vue' ? `:${name}="${value}"` : `${name}={${value}}`);
+			const list = attrs(fw, fw === 'react' && styleAttr ? { ...shown, style: { '--voice-hue-base': `${s.hueShift}deg` } } : shown);
+			list.unshift(
+				source === 'mic' ? bind('stream', 'mic.stream')
+				: source === 'manual' ? bind('level', level)
+				: source === 'sweep' ? bind('motion', 'sweep')
+				: fw === 'svelte' ? '{level}'
+				: bind('level', 'level')
+			);
+			const names = `import { VoiceBeam${source === 'mic' ? ', useMicrophone' : ''} } from ${from};`;
+			const hook = source === 'mic' ? ['const mic = useMicrophone();'] : [];
+			const sweepFn = source === 'sweep' ? sweepLines('const sweep') : [];
+			const beam = `${openTag('VoiceBeam', list)}\n  ${host.child}\n</VoiceBeam>`;
+
+			if (fw === 'react') {
+				return reactFile({
+					top: sections([names], sweepFn, cssLines('const voiceCss')),
+					note: source === 'demo' ? `// level: ${LEVEL_NOTE[0].toLowerCase()}${LEVEL_NOTE.slice(1)}` : undefined,
+					params: source === 'demo' ? 'level' : undefined,
+					body: hook.join('\n'),
+					markup: source === 'mic' ? ['<button onClick={mic.start}>Listen</button>', '', beam] : beam
+				});
+			}
+			const taken =
+				source !== 'demo' ? []
+				: [`// ${LEVEL_NOTE}`, fw === 'svelte' ? 'let { level } = $props();' : "defineProps(['level']);"];
+			const script = sections([names], hook, sweepFn, taken, cssLines('const voiceCss'));
+			if (fw === 'svelte') return svelteFile(script, `${source === 'mic' ? '<button onclick={mic.start}>Listen</button>\n\n' : ''}${beam}`);
+			return vueFile(script, `${source === 'mic' ? '<button @click="mic.start">Listen</button>\n\n' : ''}${beam}`);
+		})
+	);
+
+	/* the steps of the prompt that are worded for the framework */
+	const STEPS: Record<Framework, { import: string; wrap: string; feed: string; hue: string; notes: string[] }> = {
+		svelte: {
+			import: `Import it: import { VoiceBeam, useMicrophone } from '${FRAMEWORKS.svelte.pkg}/voice-glow'`,
+			wrap: `VoiceBeam renders one wrapper <div> and reads the border-radius
+   of its first child.`,
+			feed: `Either stream={mic.stream} from useMicrophone() (call mic.start from a
+   click, so the browser allows audio), or level={…} with a number from 0 to 1 or a
+   function returning one.`,
+			hue: 'style="--voice-hue-base: 20deg"',
+			notes: []
+		},
+		react: {
+			import: `Import it: import { VoiceBeam, useMicrophone } from '${FRAMEWORKS.react.pkg}/voice-glow'`,
+			wrap: `VoiceBeam renders one wrapper <div> round its children and reads
+   the border-radius of the first one. className, style and a ref go on that wrapper.`,
+			feed: `Either stream={mic.stream} from the useMicrophone() hook (call
+   mic.start from a click, so the browser allows audio), or level={…} with a number from
+   0 to 1 or a function returning one.`,
+			hue: "style={{ '--voice-hue-base': '20deg' }}",
+			notes: []
+		},
+		vue: {
+			import: `Import it: import { VoiceBeam, useMicrophone } from '${FRAMEWORKS.vue.pkg}/voice-glow'`,
+			wrap: `VoiceBeam renders one wrapper <div> round its default slot and
+   reads the border-radius of the first element in it. class and style go on that wrapper.`,
+			feed: `Either :stream="mic.stream" from useMicrophone() (call it in setup,
+   read mic.stream from the object it returns without destructuring, and call mic.start
+   from a click, so the browser allows audio), or :level="…" with a number from 0 to 1 or
+   a function returning one.`,
+			hue: 'style="--voice-hue-base: 20deg"',
+			notes: ['In a template, write the props in kebab-case: colorVariant is color-variant.']
+		},
+		elements: {
+			import: `Import it once, which registers the <runeglow-voice-beam> tag: import '${FRAMEWORKS.elements.pkg}/voice-glow'
+   The microphone helper is in the same module: import { createMicrophone } from '${FRAMEWORKS.elements.pkg}/voice-glow'`,
+			wrap: `<runeglow-voice-beam> is the wrapper itself: a block element
+   in the page's own DOM, with no shadow root, that reads the border-radius of its first child.`,
+			feed: `Either set the element's stream property from createMicrophone(), as
+   in mic.subscribe(() => (beam.stream = mic.stream)), calling mic.start from a click so the
+   browser allows audio; or give it a level, the attribute level="0.6" for a number from 0 to
+   1, or the level property for a function returning one.`,
+			hue: 'style="--voice-hue-base: 20deg"',
+			notes: [
+				`Every option is a property of the element in camelCase and, where text can say it, an
+  attribute in kebab-case: colorVariant is color-variant. colors, band-colors and motion are
+  written as JSON; a boolean that is off is written bands="false".`,
+				`stream, a function for level or motion, onLevel, onActivate and onDeactivate are properties
+  only. The end of a fade is also an activate or deactivate event on the element.`
+			]
+		},
+		vanilla: {
+			import: `Import it: import { mountVoiceBeam, createMicrophone } from '${FRAMEWORKS.vanilla.pkg}/voice-glow'`,
+			wrap: `mountVoiceBeam(wrapper, options) takes an element the page already
+   has, the wrapper round that content. It adds its layers and a stylesheet inside the wrapper,
+   after the content, and reads the border-radius of the wrapper's first child.`,
+			feed: `Either beam.update({ stream: mic.stream }) from createMicrophone(),
+   inside mic.subscribe(…), calling mic.start from a click so the browser allows audio; or the
+   level option, a number from 0 to 1 or a function returning one.`,
+			hue: 'the custom property --voice-hue-base: 20deg on the wrapper',
+			notes: [
+				`mountVoiceBeam returns { element, update, destroy }: update(options) changes some options
+  and keeps the rest, and destroy() takes the beam off the wrapper, leaving it and its content.`
+			]
+		}
+	};
+
+	const prompt = $derived(
+		perFramework((fw, info) => {
+			const step = STEPS[fw];
+			return `Add the Voice glow from ${SITE.name} to this ${info.app}: a coloured beam along the bottom
 edge of an element that rises with the level of a voice.
 
-1. Install the package with the project's package manager, for example: pnpm add ${SITE.pkg}
-2. Import it: import { VoiceBeam, useMicrophone } from '${SITE.pkg}/voice-glow'
+1. Install the package with the project's package manager, for example: pnpm add ${info.pkg}
+2. ${step.import}
 3. Wrap the element the voice belongs to: a chat input, a recording pill, or the bottom
-   of a mobile screen. VoiceBeam renders one wrapper <div> and reads the border-radius
-   of its first child.
-4. Feed it sound. Either stream={mic.stream} from useMicrophone() (call mic.start from a
-   click, so the browser allows audio), or level={…} with a number from 0 to 1 or a
-   function returning one.
+   of a mobile screen. ${step.wrap}
+4. Feed it sound. ${step.feed}
 5. Start from this configuration:
 
-${snippet}
+${snippet[fw]}
 
 Parameter vocabulary, for later changes:
 - type: "default" (chat input, about 350px wide) | "pill" (small recording pill) |
@@ -378,7 +523,7 @@ Parameter vocabulary, for later changes:
 - glowWidth, glowHeight, lobeSpacing, rangeWidth, rangeHeight, softness, coreSize,
   coreLight, strokeScale, innerScale, innerHeight, bloomScale, bloomHeight: the glow's shape
 - strength, glowSize, brightness, saturation, strokeOpacity, innerOpacity, bloomOpacity
-- hueRange, hueDuration, staticColors; style="--voice-hue-base: 20deg" shifts the palette
+- hueRange, hueDuration, staticColors; ${step.hue} shifts the palette
 - active (fades in and out), paused (holds the current frame)
 - motion: { gather, offset, stretch, heldLevel } or a function returning it; gathers the
   glow into one beam that you can move, for a "working on it" state
@@ -386,8 +531,10 @@ Parameter vocabulary, for later changes:
 - css: extra CSS appended to the generated sheet; write {id} for the instance id
 
 Notes:
-- Nothing is recorded or played back: the stream is only analysed for its level.
-- Under prefers-reduced-motion the glow holds still.`);
+${step.notes.map((note) => `- ${note}\n`).join('')}- Nothing is recorded or played back: the stream is only analysed for its level.
+- Under prefers-reduced-motion the glow holds still.`;
+		})
+	);
 
 	const micNote = $derived.by(() => {
 		if (s.source !== 'mic') return '';

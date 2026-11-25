@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { framework } from '#lib/framework.svelte.ts';
 	import { SITE } from '#lib/site.ts';
 	import CopyButton from './CopyButton.svelte';
+	import FrameworkTabs from './FrameworkTabs.svelte';
 
 	interface Props {
 		/** Other packages to install alongside, such as a peer dependency. */
@@ -10,12 +12,15 @@
 	}
 	let { extra = '', registry }: Props = $props();
 
-	const copyIn = $derived(registry ? `npx shadcn-svelte@latest add ${SITE.url}/r/${registry}.json` : '');
+	/* copying the source in is the shadcn-svelte CLI's doing: Svelte only */
+	const copyIn = $derived(
+		registry && framework.id === 'svelte' ? `npx shadcn-svelte@latest add ${SITE.url}/r/${registry}.json` : ''
+	);
 
 	const VERBS = { pnpm: 'pnpm add', npm: 'npm install', yarn: 'yarn add', bun: 'bun add' } as const;
 	const MANAGERS = $derived(
 		Object.fromEntries(
-			Object.entries(VERBS).map(([name, verb]) => [name, `${verb} ${SITE.pkg}${extra ? ` ${extra}` : ''}`])
+			Object.entries(VERBS).map(([name, verb]) => [name, `${verb} ${framework.info.pkg}${extra ? ` ${extra}` : ''}`])
 		) as Record<keyof typeof VERBS, string>
 	);
 	type Manager = keyof typeof VERBS;
@@ -57,6 +62,7 @@
 </script>
 
 <div class="install">
+	<div class="frameworks"><FrameworkTabs /></div>
 	<div class="tabs" role="tablist" aria-label="Package manager" tabindex="-1" {onkeydown}>
 		{#each NAMES as name (name)}
 			<button
@@ -89,6 +95,10 @@
 		border-radius: 14px;
 		background: var(--card);
 		box-shadow: inset 0 0 0 1px var(--line);
+	}
+	.frameworks {
+		padding: 10px 10px 8px;
+		border-bottom: 1px solid var(--line);
 	}
 	.tabs {
 		display: flex;

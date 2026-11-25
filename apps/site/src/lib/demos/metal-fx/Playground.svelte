@@ -23,15 +23,16 @@
 		useMetalTextReflection,
 		type MetalFxPreset,
 		type PresetMode
-	} from 'runeglow/metal-fx';
+	} from '@runeglow/svelte/metal-fx';
 	import PanelGroup from '#lib/components/PanelGroup.svelte';
 	import PlaygroundShell from '#lib/components/PlaygroundShell.svelte';
 	import Segmented from '#lib/components/Segmented.svelte';
 	import Slider from '#lib/components/Slider.svelte';
 	import SwatchRow from '#lib/components/SwatchRow.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
+	import type { Props } from '#lib/code.ts';
 	import { arrowCursor } from '#lib/demos/thinking-orbs/cursor.ts';
-	import { SITE } from '#lib/site.ts';
+	import { OFF, metalPrompt, metalSnippet } from './code.ts';
 	import './demo.css';
 
 	type Kind = 'circle' | 'button' | 'text' | 'badge';
@@ -271,76 +272,65 @@
 		s.innerShadow = true;
 	}
 
+	/* What is on the stage, said once: the props that differ from the
+	   library's defaults, in the order they are written, and the page-wide
+	   tuning. `metalSnippet` writes it out in each framework. */
 	const snippet = $derived.by(() => {
-		const imports = new Set<string>();
-		const setup: string[] = [];
-		const config: string[] = [];
-		let markup = '';
-		const st = strength !== 100 ? `strength={${num(strength / 100)}}` : '';
-		const th = s.theme !== 'auto' ? `theme="${s.theme}"` : '';
-		const join = (tag: string, p: string[], child: string) => {
-			const props = p.filter(Boolean);
-			const open = props.length <= 3 ? `<${tag}${props.length ? ' ' + props.join(' ') : ''}` : `<${tag}\n  ${props.join('\n  ')}\n`;
-			return child ? `${open}>\n  ${child}\n</${tag}>` : `${open}${props.length <= 3 ? ' ' : ''}/>`;
-		};
+		const r = (v: number) => +v.toFixed(3);
+		const props: Props = {};
+		const rimProps = { offsetY: r(rim.offsetY), blur: r(rim.blur), alpha: r(rim.alpha) };
+		const theme = s.theme !== 'auto' ? s.theme : undefined;
+		const st = strength !== 100 ? r(strength / 100) : undefined;
 
 		if (isRing) {
-			imports.add('MetalFx');
-			const p = [s.bend ? 'bind:ref={ring}' : '', s.type === 'circle' ? 'variant="circle"' : ''];
-			if (s.preset !== 'chromatic') p.push(`preset="${s.preset}"`);
-			p.push(th, st);
-			if (s.shaderScale != null) p.push(`shaderScale={${num(s.shaderScale)}}`);
-			if (s.ring != null) p.push(`ringCssPx={${num(s.ring)}}`);
-			if (s.glowGain !== 1) p.push(`glowGain={${num(s.glowGain)}}`);
-			if (s.scale !== 1) p.push(`scale={${num(s.scale)}}`);
-			if (s.type === 'button' && s.radius != null) p.push(`borderRadius={${s.radius}}`);
-			if (!s.normalize) p.push('normalizeHostStyles={false}');
-			if (s.innerShadow) p.push(rimMoved ? `innerShadow={{ offsetY: ${num(rim.offsetY)}, blur: ${num(rim.blur)}, alpha: ${num(rim.alpha)} }}` : 'innerShadow');
-			if (s.noGlow) p.push('disableGlow');
-			if (!s.noReflection) p.push(reflection === 1 ? 'reflectionTargets={[search]}' : `reflectionTargets={[{ el: search, strength: ${num(reflection)} }]}`);
-			if (s.bend) {
-				imports.add('useMetalBend');
-				setup.push('let ring = $state(null);', 'useMetalBend(() => ring); // the ring dents under the cursor');
-			}
-			if (!s.noReflection) setup.push('let search = $state(null); // a neighbour that catches the reflection');
-			const child = s.type === 'circle' ? '<button aria-label="Send"><ArrowUp /></button>' : '<button>Upgrade to Pro</button>';
-			markup = (s.noReflection ? '' : '<label bind:this={search}>…</label>\n') + join('MetalFx', p, child);
+			if (s.type === 'circle') props.variant = 'circle';
+			if (s.preset !== 'chromatic') props.preset = s.preset;
+			props.theme = theme;
+			props.strength = st;
+			if (s.shaderScale != null) props.shaderScale = r(s.shaderScale);
+			if (s.ring != null) props.ringCssPx = r(s.ring);
+			if (s.glowGain !== 1) props.glowGain = r(s.glowGain);
+			if (s.scale !== 1) props.scale = r(s.scale);
+			if (s.type === 'button' && s.radius != null) props.borderRadius = s.radius;
+			if (!s.normalize) props.normalizeHostStyles = false;
+			if (s.innerShadow) props.innerShadow = rimMoved ? rimProps : true;
+			if (s.noGlow) props.disableGlow = true;
 		} else if (s.type === 'text') {
-			imports.add('MetalText');
-			const p = ['text="Pro"', `font="${font.replace(", 'Geist'", '')}"`, `color="${s.textColor ?? '#e2e2e2'}"`, th, st];
-			if (s.metalOpacity != null) p.push(`metalOpacity={${num(s.metalOpacity)}}`);
-			if (s.shaderScale != null) p.push(`shaderScale={${num(s.shaderScale)}}`);
-			if (!s.innerShadow) p.push('innerShadow={null}');
-			else if (rimMoved) p.push(`innerShadow={{ offsetY: ${num(rim.offsetY)}, blur: ${num(rim.blur)}, alpha: ${num(rim.alpha)} }}`);
+			props.text = 'Pro';
+			props.font = font.replace(", 'Geist'", '');
+			props.color = s.textColor ?? '#e2e2e2';
+			props.theme = theme;
+			props.strength = st;
+			if (s.metalOpacity != null) props.metalOpacity = r(s.metalOpacity);
+			if (s.shaderScale != null) props.shaderScale = r(s.shaderScale);
+			if (!s.innerShadow) props.innerShadow = OFF;
+			else if (rimMoved) props.innerShadow = rimProps;
 			if (s.textGlow && !s.noGlow) {
-				p.push('glow');
-				if (s.textGlowGain !== METAL_TEXT_DEFAULTS.glowGain) p.push(`glowGain={${num(s.textGlowGain)}}`);
+				props.glow = true;
+				if (s.textGlowGain !== METAL_TEXT_DEFAULTS.glowGain) props.glowGain = r(s.textGlowGain);
 			}
-			if (!s.noReflection) {
-				imports.add('useMetalTextReflection');
-				setup.push('let plan = $state(null);', 'useMetalTextReflection(() => plan); // "Plan" catches the metal on its letters');
-				p.push(`reflectionTargets={[{ el: plan, strength: ${num(reflection)} }]}`);
-			}
-			markup = (s.noReflection ? '' : '<span bind:this={plan}>Plan</span>\n') + join('MetalText', p, '');
 		} else {
-			imports.add('MetalBadge');
-			const p = ['text="New"', th, st];
-			if (s.badgeScale !== 1) p.push(`scale={${num(s.badgeScale)}}`);
-			if (s.metalOpacity != null) p.push(`metalOpacity={${num(s.metalOpacity)}}`);
-			if (s.shaderScale != null) p.push(`shaderScale={${num(s.shaderScale)}}`);
-			if (coreMoved) p.push(`core={{ r: ${s.coreR}, blur: ${s.coreBlur}, a: ${num(s.coreA)}, size: ${s.coreSize} }}`);
-			if (s.badgeGradient !== METAL_BADGE_DEFAULTS.gradient) p.push(`gradient={${num(s.badgeGradient)}}`);
-			if (s.badgeGlow !== METAL_BADGE_DEFAULTS.glow) p.push(`glow={${num(s.badgeGlow)}}`);
-			if (s.badgeText && s.badgeText !== '#323232') p.push(`textColor="${s.badgeText}"`);
-			markup = join('MetalBadge', p, '');
+			props.text = 'New';
+			props.theme = theme;
+			props.strength = st;
+			if (s.badgeScale !== 1) props.scale = r(s.badgeScale);
+			if (s.metalOpacity != null) props.metalOpacity = r(s.metalOpacity);
+			if (s.shaderScale != null) props.shaderScale = r(s.shaderScale);
+			if (coreMoved) props.core = { r: s.coreR, blur: s.coreBlur, a: r(s.coreA), size: s.coreSize };
+			if (s.badgeGradient !== METAL_BADGE_DEFAULTS.gradient) props.gradient = r(s.badgeGradient);
+			if (s.badgeGlow !== METAL_BADGE_DEFAULTS.glow) props.glow = r(s.badgeGlow);
+			if (s.badgeText && s.badgeText !== '#323232') props.textColor = s.badgeText;
 		}
 
+		/* the page-wide calls are the core's own, the same in every framework */
+		const names: string[] = [];
+		const config: string[] = [];
 		const glow: string[] = [];
 		if (s.glowIntensity !== DEFAULTS.glowIntensity) glow.push(`haloOpMul: ${num(s.glowIntensity)}`);
 		if (s.glowAppear !== DEFAULTS.glowAppear) glow.push(`relocFadeMs: ${s.glowAppear}`);
 		if (s.glowDisappear !== DEFAULTS.glowDisappear) glow.push(`relocFadeOutMs: ${s.glowDisappear}`);
 		if (glow.length) {
-			imports.add('setGlowConfig');
+			names.push('setGlowConfig');
 			config.push(`setGlowConfig({ ${glow.join(', ')} }); // the halo, page-wide`);
 		}
 		if (isRing && s.bend) {
@@ -349,12 +339,12 @@
 			if (s.bendReach !== DEFAULTS.bendReach) b.push(`reach: ${s.bendReach}`);
 			if (s.bendMax !== DEFAULTS.bendMax) b.push(`maxDisp: ${num(s.bendMax)}`);
 			if (b.length) {
-				imports.add('setBendConfig');
+				names.push('setBendConfig');
 				config.push(`setBendConfig({ ${b.join(', ')} }); // the cursor bend, page-wide`);
 			}
 		}
 		if (s.cursor) {
-			imports.add('setCursorSprite');
+			names.push('setCursorSprite');
 			const c: string[] = [];
 			if (s.cursorDistance !== DEFAULTS.cursorDistance) c.push(`cursorDistance: ${s.cursorDistance}`);
 			if (s.cursorSpecular !== DEFAULTS.cursorSpecular) c.push(`cursorStrength: ${num(s.cursorSpecular)}`);
@@ -362,13 +352,12 @@
 			if (s.cursorReach !== DEFAULTS.cursorReach) c.push(`cursorReach: ${num(s.cursorReach)}`);
 			config.push('// The ring lights the pointer. Supply an image of the pointer to draw in its place.', 'setCursorSprite({ src: pointerImage, width: 18, height: 24, hotX: 3, hotY: 3 });');
 			if (c.length) {
-				imports.add('setCursorLightConfig');
+				names.push('setCursorLightConfig');
 				config.push(`setCursorLightConfig({ ${c.join(', ')} });`);
 			}
 		}
 		if (materialMoved) {
-			imports.add('PRESETS');
-			imports.add('setSharedPresetMode');
+			names.push('PRESETS', 'setSharedPresetMode');
 			const m = Object.entries(material).map(([k, v]) => `${k}: ${num(v)}`);
 			config.push(
 				'// The material itself, page-wide: every instance shares one renderer.',
@@ -376,39 +365,18 @@
 			);
 		}
 
-		const lines = [`  import { ${[...imports].join(', ')} } from '${SITE.pkg}/metal-fx';`];
-		if (setup.length) lines.push('', ...setup.map((l) => `  ${l}`));
-		if (config.length) lines.push('', ...config.map((l) => `  ${l}`));
-		return `<script>\n${lines.join('\n')}\n<\/script>\n\n${markup}`;
+		return metalSnippet({
+			kind: s.type,
+			props,
+			bend: isRing && s.bend,
+			/* the badge on the stage has no neighbour to light */
+			reflection: s.type === 'badge' || s.noReflection ? null : r(reflection),
+			config,
+			configNames: names
+		});
 	});
 
-	const prompt = $derived(`Add Liquid metal from ${SITE.name} to this Svelte 5 app: an animated WebGL metal ring around
-a button, metal-filled text, or a metal badge.
-
-1. Install the package with the project's package manager, for example: pnpm add ${SITE.pkg}
-2. Import it: import { MetalFx, MetalText, MetalBadge, useMetalBend } from '${SITE.pkg}/metal-fx'
-3. MetalFx wraps one element (a button, a link, a div) and draws the ring on top of it.
-   The wrapper is display: inline-flex and sizes itself to that element.
-4. Start from this configuration:
-
-${snippet}
-
-Parameter vocabulary, for later changes:
-- variant: button (pill) or circle. preset: chromatic, silver or gold. theme: auto, dark, light.
-- strength 0 to 1, glowGain, shaderScale (zoom of the metal), ringCssPx (ring thickness),
-  scale (multiplies every pixel constant), borderRadius, innerShadow, disableGlow, paused.
-- reflectionTargets: neighbouring elements that catch a reflection (dark theme only).
-  Pass the element from bind:this, or { el, strength }.
-- useMetalBend(() => el): the ring dents under the cursor. useMetalTextReflection(() => el):
-  a text element catches the reflection on its letters only.
-- MetalText: text, font (CSS shorthand), color, metalOpacity, innerShadow, glow.
-- MetalBadge: text, scale, metalOpacity, core, gradient, glow, textColor.
-- Page-wide settings: setGlowConfig, setBendConfig, setCursorLightConfig, setCursorSprite,
-  setSharedPresetMode. One renderer draws every instance, so the preset and theme are shared.
-
-Notes:
-- Needs WebGL2. Without it the wrapped element renders as it is.
-- Reflections are skipped in the light theme.`);
+	const prompt = $derived(metalPrompt(snippet));
 </script>
 
 {#snippet search()}

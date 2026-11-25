@@ -9,8 +9,14 @@
 	"workers_dev": true,
 	// The account comes from CLOUDFLARE_ACCOUNT_ID, set in a local .env file that is
 	// not committed. With more than one account and no ID, wrangler stops and asks.
+	// Only /r/*, the registry, goes through this script: it counts downloads.
+	// It needs one secret, set once with
+	//   pnpm dlx wrangler@latest secret put OPENPANEL_CLIENT_SECRET
+	"main": "./worker/index.ts",
 	"assets": {
 		"directory": "./build",
+		"binding": "ASSETS",
+		"run_worker_first": ["/r/*"],
 		// /border-beam serves border-beam.html
 		"html_handling": "auto-trailing-slash",
 		"not_found_handling": "404-page"
