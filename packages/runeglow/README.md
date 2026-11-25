@@ -77,6 +77,10 @@ The props keep their names. What changes is what Svelte spells differently:
 A few things here are not in the React libraries:
 
 - Bot avatars: three extra types (`dot`, `planet`, `spark`) and `face="none"` for a bare body.
+- Bot avatars: `RobotHead`, a 3D robot head with an LED face in six shapes and eleven states, beside
+  `BotAvatar`. It is a port of [robot-heads](https://github.com/fayazara/robot-heads) by Fayaz Ahmed
+  (MIT), with two more shapes (`capsule`, `octagon`), two more states (`waiting`, `success`), three
+  finishes (`gloss`, `matte`, `metal`), round LEDs, ten colourways and a `pose` prop.
 - Bot avatars: each avatar appears as soon as its own fur or plastic material is built, and one that
   is far off screen does not build its material until it is scrolled near. The React library holds
   every avatar back until the whole page is ready.
@@ -94,4 +98,5 @@ A few things here are not in the React libraries:
 ## License
 
 MIT. See `LICENSE` and `NOTICE`. Liquid metal includes a shader from Paper Shaders under the
-Apache License 2.0; a copy is in `LICENSES/`.
+Apache License 2.0, and the robot heads are ported from robot-heads under the MIT License; copies
+of both licences are in `LICENSES/`.

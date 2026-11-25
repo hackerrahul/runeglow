@@ -17,7 +17,7 @@ const site = join(root, 'apps/site');
 const INFO = {
   'border-beam': ['Border beam', 'An animated glowing border for cards, buttons and inputs.'],
   'thinking-orbs': ['Thinking orbs', 'Dotted loading indicators for AI interfaces, in nine states.'],
-  'bot-avatars': ['Bot avatars', 'Animated faces for AI agents.'],
+  'bot-avatars': ['Bot avatars', 'Animated faces for AI agents: plush, plastic and flat bodies, and robot heads with LED faces.'],
   'liquid-gooey': ['Gooey', 'Elements that merge and split like liquid.'],
   'voice-glow': ['Voice', 'A glow that rises with a voice from the bottom of an input or screen.'],
   'voice-ring': ['Voice ring', 'A ring of light that bends with a voice.'],

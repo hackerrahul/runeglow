@@ -22,7 +22,7 @@ pnpm add runeglow
 | --- | --- | --- |
 | [Border beam](https://runeglow.dev/border-beam) | `runeglow/border-beam` | A glow that travels the edge of a card, button or input |
 | [Thinking orbs](https://runeglow.dev/thinking-orbs) | `runeglow/thinking-orbs` | Dotted loading indicators for AI interfaces |
-| [Bot avatars](https://runeglow.dev/bot-avatars) | `runeglow/bot-avatars` | Animated faces for AI agents |
+| [Bot avatars](https://runeglow.dev/bot-avatars) | `runeglow/bot-avatars` | Animated faces for AI agents: plush, plastic, flat, and robots with LED faces |
 | [Gooey](https://runeglow.dev/liquid-gooey) | `runeglow/liquid-gooey` | Elements that merge and split like liquid |
 | [Voice](https://runeglow.dev/voice-glow) | `runeglow/voice-glow` | A glow that rises with a voice |
 | [Voice ring](https://runeglow.dev/voice-ring) | `runeglow/voice-ring` | A ring of light that bends with a voice |
@@ -53,8 +53,9 @@ pnpm build        # the library, the registry and the site
 Runeglow is a Svelte 5 port of [Libraries.dev](https://libraries.dev) by Jakub Antalik
 ([source](https://github.com/Jakubantalik/Libraries.dev), MIT). The effect engines are his code;
 the Svelte components around them and this site are new. Liquid metal's shader is from
-[Paper Shaders](https://github.com/paper-design/shaders), under the Apache License 2.0. See
-`NOTICE`.
+[Paper Shaders](https://github.com/paper-design/shaders), under the Apache License 2.0. The robot
+heads in Bot avatars are a port of [robot-heads](https://github.com/fayazara/robot-heads) by Fayaz
+Ahmed (MIT). See `NOTICE`.
 
 ## License
 

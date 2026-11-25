@@ -21,7 +21,7 @@ export const PAGES: Record<string, PageMeta> = {
 	"/bot-avatars": {
 		title: "Bot avatars for Svelte | Runeglow",
 		description:
-			"Bot avatars are animated faces for AI agents in Svelte: twenty-one shapes, three states, five materials including plush fur and glossy plastic, drawn on a canvas. MIT."
+			"Bot avatars are animated faces for AI agents in Svelte, in four families: plush fabric, glossy plastic, flat vector, and 3D robot heads with LED faces. Drawn on a canvas. MIT."
 	},
 	"/distortion-waves": {
 		title: "Distortion waves for Svelte | Runeglow",

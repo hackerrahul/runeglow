@@ -6,7 +6,8 @@
 	import LibIcon from '#lib/components/LibIcon.svelte';
 	import Subject from '#lib/demos/border-beam/Subject.svelte';
 	import OrbPill from '#lib/demos/thinking-orbs/OrbPill.svelte';
-	import { BotAvatar } from 'runeglow/bot-avatars';
+	import { BotAvatar, RobotHead, type RobotHeadState } from 'runeglow/bot-avatars';
+	import { FAMILIES } from '#lib/demos/bot-avatars/families.ts';
 	import MorphDemo from '#lib/demos/liquid-gooey/MorphDemo.svelte';
 	import { DEFAULT_GROUP } from '#lib/demos/liquid-gooey/shared.ts';
 	import { VoiceBeam } from 'runeglow/voice-glow';
@@ -31,6 +32,15 @@
 <BorderBeam>
   <Card />
 </BorderBeam>`;
+
+	/* The robot in the families band plays through an agent's run, so its
+	   screen is seen changing without anyone touching it. */
+	const RUN: RobotHeadState[] = ['thinking', 'searching', 'working', 'success', 'idle'];
+	let step = $state(0);
+	$effect(() => {
+		const id = setInterval(() => (step = (step + 1) % RUN.length), 2600);
+		return () => clearInterval(id);
+	});
 
 	const faqs = [
 		{
@@ -106,9 +116,9 @@
 						</div>
 					{:else if lib.slug === 'bot-avatars'}
 						<div class="bots">
-							<BotAvatar type="clover" size={64} seed={0.1} />
-							<BotAvatar type="cat" size={64} state="working" seed={0.5} />
-							<BotAvatar type="ghost" size={64} state="sleeping" seed={0.8} />
+							<BotAvatar type="clover" size={60} seed={0.1} />
+							<RobotHead size={84} state="thinking" seed={0.5} />
+							<BotAvatar type="ghost" shading="plastic" size={60} state="sleeping" seed={0.8} />
 						</div>
 					{:else if lib.slug === 'liquid-gooey'}
 						<div class="goo">
@@ -165,6 +175,43 @@
 			</div>
 		{/if}
 	{/each}
+</section>
+
+<section id="families" class="wrap fam">
+	<p class="new">New in Bot avatars</p>
+	<h2>Four families, one import</h2>
+	<p class="sub">
+		Plush, plastic and flat bodies, and now robots with an LED face that shows what your agent is
+		doing.
+	</p>
+	<div class="fam-grid">
+		{#each FAMILIES as f (f.id)}
+			<a class="card" class:wide={f.id === 'robot'} href="/bot-avatars#{f.id}">
+				<div class="stage">
+					{#if f.id === 'fabric'}
+						<BotAvatar type="cat" size={84} headphones seed={0.3} />
+					{:else if f.id === 'plastic'}
+						<BotAvatar type="planet" shading="plastic" size={84} seed={0.55} />
+					{:else if f.id === 'flat'}
+						<BotAvatar type="hexagon" shading="crisp" size={84} seed={0.75} />
+					{:else}
+						<div class="robots">
+							<RobotHead size={92} shape="circle" colorway="tangerine" state="speaking" seed={0.2} />
+							<RobotHead size={112} state={RUN[step]} seed={0.5} />
+							<RobotHead size={92} shape="hexagon" colorway="graphite" finish="matte" state="waiting" seed={0.8} />
+						</div>
+						<span class="state" aria-hidden="true">state="{RUN[step]}"</span>
+					{/if}
+				</div>
+				<div class="meta">
+					<span>
+						<span class="name">{f.name}</span>
+						<span class="blurb">{f.blurb}</span>
+					</span>
+				</div>
+			</a>
+		{/each}
+	</div>
 </section>
 
 <section id="how" class="wrap how">
@@ -324,7 +371,58 @@
 	}
 	.bots {
 		display: flex;
+		align-items: center;
+		gap: 16px;
+	}
+
+	.fam-grid {
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
 		gap: 18px;
+		margin-top: 32px;
+		text-align: left;
+	}
+	.fam-grid .wide {
+		grid-column: span 2;
+	}
+	.fam-grid .stage {
+		height: 190px;
+	}
+	.fam-grid .meta {
+		padding-left: 10px;
+	}
+	.robots {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		margin-bottom: 14px;
+	}
+	.state {
+		position: absolute;
+		bottom: 10px;
+		left: 50%;
+		transform: translateX(-50%);
+		padding: 2px 9px;
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.06);
+		font-family: var(--font-mono);
+		font-size: 11.5px;
+		color: var(--fg-2);
+		white-space: nowrap;
+	}
+	.new {
+		display: inline-block;
+		margin-bottom: 12px;
+		padding: 3px 11px;
+		border-radius: 999px;
+		background: rgba(255, 184, 107, 0.12);
+		font-size: 12.5px;
+		font-weight: 500;
+		color: var(--amber);
+	}
+	.fam .sub {
+		max-width: 52ch;
+		margin-inline: auto;
 	}
 	.goo {
 		margin-top: 30px;
@@ -393,6 +491,7 @@
 		color: var(--fg-3);
 	}
 
+	.fam,
 	.how,
 	.faq {
 		margin-top: 120px;
@@ -519,6 +618,13 @@
 		ol {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
+		.fam-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+		.fam-grid .wide {
+			grid-column: 1 / -1;
+			order: -1;
+		}
 	}
 	@media (max-width: 640px) {
 		.grid,
@@ -528,6 +634,13 @@
 		h1 {
 			font-size: 38px;
 		}
+		.fam-grid {
+			gap: 10px;
+		}
+		.robots {
+			zoom: 0.82;
+		}
+		.fam,
 		.how,
 		.faq {
 			margin-top: 84px;

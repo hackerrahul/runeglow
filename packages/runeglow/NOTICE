@@ -37,3 +37,23 @@ Specifically:
     upstream metal-fx package.
 
 No changes were made to either shader's source.
+
+Robot heads (packages/runeglow/src/lib/bot-avatars/robot) is a Svelte port of
+software developed by Fayaz Ahmed.
+
+  robot-heads (https://github.com/fayazara/robot-heads)
+  Copyright (c) 2026 Fayaz Ahmed
+  Licensed under the MIT License
+  A copy is at packages/runeglow/LICENSES/robot-heads-MIT.txt.
+
+Specifically:
+
+  * geometry.ts, light.ts, faces.ts, sim.ts and render.ts are carried over
+    from `src/tv` at version 0.3.0, and changed: two more shapes (capsule,
+    octagon) and two more states (waiting, success); three shell finishes;
+    round LEDs; the screen's light on its bezel and contact shading under
+    the ears; meshes at three levels of detail; quads drawn grouped by
+    colour; baked reliefs made at a few sizes and the least recently used
+    dropped.
+
+  * RobotHead.svelte, presets.ts and types.ts are new.

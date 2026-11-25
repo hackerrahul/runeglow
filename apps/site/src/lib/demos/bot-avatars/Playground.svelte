@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import {
 		BotAvatar,
 		botAvatarPalette,
@@ -21,6 +22,11 @@
 	import SwatchRow from '#lib/components/SwatchRow.svelte';
 	import Toggle from '#lib/components/Toggle.svelte';
 	import { SITE } from '#lib/site.ts';
+	import type { SoftFamily } from './families.ts';
+
+	/* The family the page is showing: it sets the material the playground
+	   starts in, and which materials it offers. */
+	let { family = 'fabric' }: { family?: SoftFamily } = $props();
 
 	const TYPES = botAvatarTypes.map((t) => ({ value: t, label: botAvatarPresets[t].label }));
 	const FACES = [
@@ -33,13 +39,13 @@
 		{ value: 'working', label: 'Working' },
 		{ value: 'sleeping', label: 'Sleeping' }
 	] as const;
-	const SHADINGS = [
-		{ value: 'fabric', label: 'Fabric' },
-		{ value: 'plastic', label: 'Plastic' },
+	/* fabric and plastic are one material each; flat is three ways to light a vector body */
+	const FLAT_SHADINGS = [
 		{ value: 'crisp', label: 'Crisp' },
 		{ value: 'smooth', label: 'Smooth' },
 		{ value: 'flat', label: 'Flat' }
 	] as const;
+	const OWN_SHADING: Record<SoftFamily, BotAvatarShading> = { fabric: 'fabric', plastic: 'plastic', flat: 'crisp' };
 	const THEMES = [
 		{ value: 'auto', label: 'Auto' },
 		{ value: 'dark', label: 'Dark' },
@@ -105,6 +111,9 @@
 	/* Sliders work in whole units (percent, milliseconds, degrees) and the
 	   props are derived from them. `null` means "left alone": the component
 	   then uses the type's or the material's own value. */
+	/* The page remounts the playground when the family changes, so the
+	   family is read once, here. */
+	const ownShading = OWN_SHADING[untrack(() => family)];
 	const DEFAULTS = {
 		type: 'clover' as BotAvatarType,
 		face: null as BotAvatarFace | null,
@@ -115,7 +124,7 @@
 		brightness: null as number | null,
 		saturation: null as number | null,
 		theme: 'auto' as 'auto' | 'dark' | 'light',
-		shading: 'fabric' as BotAvatarShading,
+		shading: ownShading,
 		shadow: null as number | null,
 		highlight: null as number | null,
 		light: null as number | null,
@@ -404,7 +413,9 @@ Notes:
 		</PanelGroup>
 
 		<PanelGroup title="Material">
-			<Segmented label="Shading" options={SHADINGS} bind:value={s.shading} />
+			{#if family === 'flat'}
+				<Segmented label="Shading" options={FLAT_SHADINGS} value={s.shading as 'crisp' | 'smooth' | 'flat'} onchange={(v) => (s.shading = v)} />
+			{/if}
 			{#if s.shading !== 'flat'}
 				<Slider
 					label="Shadow"

@@ -33,3 +33,23 @@ export type {
   BotAvatarHat,
   BotAvatarGlasses,
 } from './types';
+
+/* The robot: a TV-headed bot with an LED face, a component of its own. */
+export {
+  RobotHead,
+  robotHeadShapes,
+  robotHeadStates,
+  robotHeadFinishes,
+  robotHeadPixels,
+  robotHeadColorways,
+  robotHeadColorwayNames,
+} from './robot';
+export type {
+  RobotHeadProps,
+  RobotHeadShape,
+  RobotHeadState,
+  RobotHeadFinish,
+  RobotHeadPixels,
+  RobotHeadColorway,
+  RobotHeadColorwayName,
+} from './robot';
