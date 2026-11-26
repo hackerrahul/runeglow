@@ -22,7 +22,7 @@ export const FAMILIES: FamilyInfo[] = [
 		id: 'fabric',
 		name: 'Fabric',
 		blurb: 'Plush fur',
-		lead: 'Soft toys: a pile of combed fur under a studio light, with glossy bead eyes.',
+		lead: 'Soft toys: a pile of combed fur under a studio light, with bead eyes set into it.',
 		component: 'BotAvatar'
 	},
 	{

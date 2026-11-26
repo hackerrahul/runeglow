@@ -1,6 +1,6 @@
 {
 	"name": "runeglow",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "High-craft UI effects with no framework: border beams, thinking orbs, bot avatars, gooey shapes, voice glows, liquid metal, image reveals and distortion waves, in plain TypeScript. The core that @runeglow/svelte, @runeglow/react, @runeglow/vue and @runeglow/elements are built on.",
 	"keywords": [
 		"animation",

@@ -323,7 +323,7 @@ Parameter vocabulary, for later changes${fw === 'elements' ? ' (as attributes, c
 - theme: "auto" | "dark" | "light", the surface it sits on
 
 Notes:
-- Fabric and plastic bake their material on idle time; the avatar fades in once ready.
+- Fabric's fur is drawn with WebGL2 (on the canvas alone without it); plastic bakes its material on idle time. The avatar fades in once ready.
 - It labels itself ("Clover bot, working"); pass ${labelOption(fw)} to change the wording.
 - Under prefers-reduced-motion it shows the state's still pose.`
 		)

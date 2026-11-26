@@ -1,6 +1,6 @@
 {
 	"name": "@runeglow/react",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Runeglow for React: animated bot avatars and robot heads for AI agents, as React components on the framework-free runeglow core.",
 	"keywords": [
 		"react",

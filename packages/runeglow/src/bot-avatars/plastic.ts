@@ -13,11 +13,15 @@
    back to front, each shifted by its own depth, so the body is inflated —
    round from the side as well as from the front — rather than extruded.
 
-   Everything is canvas 2D: Path2D fills, gradients, ImageData, one small
-   scratch canvas per texture size. No ctx.filter, no WebGL. */
+   Everything here is canvas 2D: Path2D fills, gradients, ImageData, one
+   small scratch canvas per texture size. No ctx.filter, no WebGL. Fabric
+   alone is drawn by the GPU where there is WebGL2 (fabric-gl.ts), from
+   the same form; the pile baked and painted in this file is then what
+   draws without it. */
 
 import type { DrawConfig } from './draw';
 import { parseColor } from './color';
+import { drawFabricGL, fabricGL, fabricPending, whenFabricSettled, type FabricFace } from './fabric-gl';
 
 /* ── constants ─────────────────────────────────────────────────────── */
 
@@ -379,7 +383,7 @@ export function hurry(on: boolean) {
 }
 /** Whether any form or pile is still being made. */
 export function bakesPending(): boolean {
-  return pending.size > 0 || furPending.size > 0;
+  return pending.size > 0 || furPending.size > 0 || fabricPending();
 }
 function idle(fn: () => void) {
   queue.push(fn);
@@ -441,7 +445,8 @@ function formFor(key: string, path: Path2D, N: number, halfDepth: number, sync: 
 /** Build a form ahead of time (call from an idle callback at mount). */
 export function warmPlastic(key: string, path: Path2D, devicePx = 192, depth = 0.65, fabric = false, style: FurStyle = FUR_STOCK, light = 295, lights?: FurLights) {
   const form = formFor(key, path, tierFor(devicePx), 15 * depth, true);
-  if (fabric && form) {
+  /* the GPU draws the pile as it goes (fabric-gl.ts): nothing to bake */
+  if (fabric && form && !fabricGL()) {
     /* toward the light on screen. The pile is queued as idle steps rather
        than baked here in one long task. */
     const a = (light * Math.PI) / 180;
@@ -2835,6 +2840,10 @@ export interface Rig {
   /** the profile through the depth: 1 a cushion, rounding off to nothing at
       the outline all round; toward 0 a slab with softened edges */
   round?: number;
+  /** fabric: the eyes, to be set into the pile where the GPU draws it;
+      `set` is made true when they have been, and the caller then draws
+      none over the body */
+  face?: FabricFace;
 }
 
 const norm3 = (v: V3): V3 => {
@@ -3250,6 +3259,19 @@ export function drawPlasticCap(
   /* a still frame makes its pile now, unless the caller redraws when it
      lands (`furOnIdle`, the component): made now it holds the page for a
      few hundred ms, and a row of still avatars for seconds */
+  /* fabric by the GPU where it can be: the form as a mesh, the pile a
+     shader's (fabric-gl.ts). The canvas-2D pile below is what draws without
+     WebGL2, or while its context is lost. */
+  if (fabric && fabricGL()) {
+    const drawn = drawFabricGL(ctx, { form, pad: PAD, span: SPAN, color: linearColor(pal.base), style: cfg.fur ?? FUR_STOCK, lights }, rig, mat);
+    if (drawn === true) return true;
+    if (drawn === 'pending') {
+      /* its shaders are compiling: a stand-in this frame, as for a bake */
+      missed = true;
+      whenFabricSettled(land);
+      return false;
+    }
+  }
   const fur = fabric ? furReady(form, cfg.typeKey ?? pathId(cfg.path), rig.halfDepth, capPx, !!rig.still && !cfg.furOnIdle, rig.lx, rig.ly, cfg.fur ?? FUR_STOCK, lights) : null;
   if (fabric && !fur) return false;
   const st = stateFor(ctx, (cfg.typeKey ?? pathId(cfg.path)) + (fabric ? '|fabric' : ''));

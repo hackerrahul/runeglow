@@ -7,9 +7,10 @@
 
 import type { Pose } from './engine';
 import type { BotAvatarFace, BotAvatarShading } from './types';
-import { shade } from './color';
+import { luminance, shade } from './color';
 import { drawPlasticCap, mulAffine, surfaceAt, type FurStyle } from './plastic';
-import { drawGlasses, drawWearBehind, drawWearFront, type EyeSpot, type Wear, type WearRig } from './wear';
+import type { FabricEye, FabricFace } from './fabric-gl';
+import { drawGlasses, drawWearBehind, drawWearFront, wearPressed, type EyeSpot, type Wear, type WearRig } from './wear';
 
 export interface DrawConfig {
   path: Path2D;
@@ -320,6 +321,14 @@ export function draw(ctx: CanvasRenderingContext2D, box: number, pose: Pose, cfg
   ctx.lineJoin = 'round';
 
   const mode = cfg.shading;
+  /* fabric's eyes are set into its pile where the GPU draws it: the body's
+     draw is handed them, and says whether it has */
+  const pile: FabricFace = { eyes: mode === 'fabric' ? eyesInPile(pose, cfg, facing) : [], ink: cfg.ink, light: cfg.light ?? lit.light, set: false };
+  /* and under what it wears the pile lies flat */
+  if (mode === 'fabric' && cfg.wear && (cfg.wear.hat !== 'none' || cfg.wear.headphones || cfg.wear.bowTie)) {
+    const at = (x: number, y: number) => surfaceAt(cfg.typeKey ?? 'custom', halfDepth, x, y, cfg.roundness ?? 1) ?? 0.8 * halfDepth;
+    pile.pressed = wearPressed(cfg.path, cfg.wear, at, { y: cfg.faceY, scale: cfg.faceScale });
+  }
   /* one solid: the slice stack (or the plastic material) for an outline
      at a depth; the thin parts come first with a fraction of the depth,
      then the body over them. A plush toy's antennae are moulded plastic:
@@ -353,7 +362,7 @@ export function draw(ctx: CanvasRenderingContext2D, box: number, pose: Pose, cfg
       plasticDone = drawPlasticCap(
         ctx,
         { ...cfg, path, typeKey: key, shading: plush ? mode : 'plastic' },
-        { cy, sy, cp, sp, facing, roll: pose.roll, halfDepth, cap, lx, ly, ...backOf(cfg.backLight), dev: box * dpr, ctm: body, still: cfg.still, round: cfg.roundness ?? 1 },
+        { cy, sy, cp, sp, facing, roll: pose.roll, halfDepth, cap, lx, ly, ...backOf(cfg.backLight), dev: box * dpr, ctm: body, still: cfg.still, round: cfg.roundness ?? 1, face: plush && mode === 'fabric' && path === cfg.path ? pile : undefined },
         pal,
         null,
         { shadow, highlight, spread, rim: rimK, vivid: cfg.vivid ?? 0, front: (Math.min(85, Math.max(0, cfg.lightFront ?? 32)) * Math.PI) / 180, shine: cfg.shine ?? 0, sheen: cfg.sheen ?? 0, backSoft: cfg.backSoftness ?? 1 }
@@ -486,7 +495,7 @@ export function draw(ctx: CanvasRenderingContext2D, box: number, pose: Pose, cfg
       ctx.clip();
       eyes = drawFace(ctx, pose, cfg);
       ctx.restore();
-    } else eyes = drawFace(ctx, pose, cfg);
+    } else eyes = drawFace(ctx, pose, cfg, pile.set);
     ctx.globalAlpha = 1;
     /* glasses: their shadow falls on the face (inside its clip), the frames
        themselves may reach past the body's edge */
@@ -584,12 +593,83 @@ function mouthPath(m: Mouth): Path2D {
   return p;
 }
 
-function drawFace(ctx: CanvasRenderingContext2D, pose: Pose, cfg: DrawConfig): [EyeSpot, EyeSpot] {
+/** One eye as it is drawn: where the feature sits on the face (before the
+    head turns it), and its curve's numbers. */
+interface EyeShape { x: number; y: number; x0: number; y0: number; cy: number; w: number }
+
+/* Each eye is one stroked curve — endpoints at ±x0,y0, a control point
+   at 0,cy, width w, round caps — so every look is the same shape with
+   different numbers, and a blend of the numbers is a real morph: the
+   upright pill of an open eye squashes into a shut line, swings up into
+   a laughing arc, or droops into a sleeping lid. */
+function eyeShapes(pose: Pose, face: DrawConfig['face']): EyeShape[] {
+  const [wd, ww, ws] = pose.w;
+  const ey = EYE_Y[face];
+  const half = EYE_GAP / 2;
+  const lx = pose.lookX, ly = pose.lookY;
+  /* the eyes take the head's aim, but only once it really aims
+     somewhere: at rest and through the small drift of a breath they keep
+     their own shape, and past that they draw taller looking up, shorter
+     looking down, and a little wider from the corner of a sideways
+     glance — the mimic that makes a turn read as a look */
+  const past = (v: number, d: number) => (Math.abs(v) <= d ? 0 : (Math.sign(v) * (Math.abs(v) - d)) / (1 - d));
+  const clamp1 = (v: number) => Math.max(-1, Math.min(1, v));
+  const up = past(clamp1(-pose.pitch / 0.26 - pose.lookY / 7), 0.34);
+  const aside = Math.abs(past(clamp1(pose.lookX / 4.5), 0.4));
+  const tall = Math.max(0.3, 1 + 0.55 * up - 0.1 * aside);
+  const wide = 1 - 0.05 * up + 0.12 * aside;
+  const open = wd + ww * (1 - pose.laugh);
+  const laugh = ww * pose.laugh;
+  const lift = Math.max(0, -pose.y) / 26;
+  const sag = 0.5 + 0.5 * pose.breath;
+  const out: EyeShape[] = [];
+  for (const side of [-1, 1] as const) {
+    const lid = side < 0 ? pose.blinkL : pose.blinkR;
+    const e = Math.max(0, Math.min(1, pose.eyeOpen * (1 - lid)));
+    const kOpen = open * e, kShut = open * (1 - e), kLaugh = laugh, kSleep = ws;
+    const x0 = kOpen * 0.01 + kShut * 5.4 + kLaugh * 6.2 + kSleep * 6;
+    const y0 = kOpen * 1.1 * tall + kShut * 0.6 + kLaugh * (2.2 - lift * 1.5) + kSleep * (-1.4 + sag);
+    const cy = kOpen * -3.3 * tall + kShut * 0.6 + kLaugh * (-11.4 - 4 * lift) + kSleep * (5.4 + 2 * sag);
+    const w = kOpen * EYE_RX * 2 * wide + kShut * 2.8 + kLaugh * 4.4 + kSleep * 4;
+    /* the eyes drift toward the look when open, less so when shut */
+    const dx = lx * (kOpen + 0.5 * (kShut + kLaugh)), dy = ly * (kOpen + 0.5 * kShut);
+    out.push({ x: side * half + dx, y: ey + dy, x0, y0, cy, w });
+  }
+  return out;
+}
+
+/**
+ * The eyes as fabric's GPU pass sets them into the pile (fabric-gl.ts):
+ * each curve with where the turned head puts it, in the body's own space.
+ * None once the face has gone round the back.
+ */
+function eyesInPile(pose: Pose, cfg: DrawConfig, facing: number): FabricEye[] {
+  if (cfg.faceless || facing <= -0.2) return [];
+  const out: FabricEye[] = [];
+  for (const { x, y, x0, y0, cy, w } of eyeShapes(pose, cfg.face)) {
+    const q = onSphere(x, y, pose.yaw, pose.pitch);
+    if (q.z <= 0.02) continue;
+    const k = cfg.faceScale;
+    out.push({
+      x: cfg.faceX - 50 + k * q.x,
+      y: cfg.faceY - 50 + k * q.y,
+      sx: k * Math.max(0.02, q.sx),
+      sy: k * Math.max(0.02, q.sy),
+      x0, y0, cy,
+      half: w / 2,
+      alpha: Math.min(1, q.z * 5),
+    });
+  }
+  return out;
+}
+
+/** `inPile`: the eyes are in the pile already (fabric by the GPU): only the rest of the face is drawn. */
+function drawFace(ctx: CanvasRenderingContext2D, pose: Pose, cfg: DrawConfig, inPile = false): [EyeSpot, EyeSpot] {
   const [wd, ww, ws] = pose.w;
   const ink = cfg.ink;
   const ey = EYE_Y[cfg.face];
   const half = EYE_GAP / 2;
-  const lx = pose.lookX, ly = pose.lookY;
+  const lx = pose.lookX;
   const { yaw, pitch } = pose;
 
   /* place a feature: skip it once it has gone round the side */
@@ -604,40 +684,58 @@ function drawFace(ctx: CanvasRenderingContext2D, pose: Pose, cfg: DrawConfig): [
     ctx.restore();
   };
 
-  /* Each eye is one stroked curve — endpoints at ±x0,y0, a control point
-     at 0,cy, width w, round caps — so every look is the same shape with
-     different numbers, and a blend of the numbers is a real morph: the
-     upright pill of an open eye squashes into a shut line, swings up into
-     a laughing arc, or droops into a sleeping lid. */
-  /* the eyes take the head's aim, but only once it really aims
-     somewhere: at rest and through the small drift of a breath they keep
-     their own shape, and past that they draw taller looking up, shorter
-     looking down, and a little wider from the corner of a sideways
-     glance — the mimic that makes a turn read as a look */
-  const past = (v: number, d: number) => (Math.abs(v) <= d ? 0 : (Math.sign(v) * (Math.abs(v) - d)) / (1 - d));
-  const clamp1 = (v: number) => Math.max(-1, Math.min(1, v));
-  const up = past(clamp1(-pose.pitch / 0.26 - pose.lookY / 7), 0.34);
-  const side = Math.abs(past(clamp1(pose.lookX / 4.5), 0.4));
-  const tall = Math.max(0.3, 1 + 0.55 * up - 0.1 * side);
-  const wide = 1 - 0.05 * up + 0.12 * side;
-  const open = wd + ww * (1 - pose.laugh);
-  const laugh = ww * pose.laugh;
-  const lift = Math.max(0, -pose.y) / 26;
-  const sag = 0.5 + 0.5 * pose.breath;
-  for (const side of [-1, 1] as const) {
-    const lid = side < 0 ? pose.blinkL : pose.blinkR;
-    const e = Math.max(0, Math.min(1, pose.eyeOpen * (1 - lid)));
-    const kOpen = open * e, kShut = open * (1 - e), kLaugh = laugh, kSleep = ws;
-    const x0 = kOpen * 0.01 + kShut * 5.4 + kLaugh * 6.2 + kSleep * 6;
-    const y0 = kOpen * 1.1 * tall + kShut * 0.6 + kLaugh * (2.2 - lift * 1.5) + kSleep * (-1.4 + sag);
-    const cy = kOpen * -3.3 * tall + kShut * 0.6 + kLaugh * (-11.4 - 4 * lift) + kSleep * (5.4 + 2 * sag);
-    const w = kOpen * EYE_RX * 2 * wide + kShut * 2.8 + kLaugh * 4.4 + kSleep * 4;
-    /* the eyes drift toward the look when open, less so when shut */
-    const dx = lx * (kOpen + 0.5 * (kShut + kLaugh)), dy = ly * (kOpen + 0.5 * kShut);
-    at(side * half + dx, ey + dy, () => {
+  const shapes = eyeShapes(pose, cfg.face);
+  /* Fabric's eyes and mouth are dark beads set into the pile, not printed
+     on it: the fur round each is pressed down, in its shade, with a crease
+     under it; and the bead is round — matte, with one dim, soft light on
+     the side the key is on (on a pale bead, a shade on the other). */
+  const bead = cfg.shading === 'fabric';
+  const pale = bead && luminance(ink) > 0.5;
+  const la = ((cfg.light ?? LIGHT_DEFAULTS.fabric.light) * Math.PI) / 180;
+  const bl = Math.hypot(0.75 * Math.sin(la), -0.75 * Math.cos(la) - 0.6) || 1;
+  const beadX = (0.75 * Math.sin(la)) / bl, beadY = (-0.75 * Math.cos(la) - 0.6) / bl;
+  /* the socket: `stroke` strokes the feature's outline, `w` its own width */
+  const socket = (stroke: () => void, w: number) => {
+    for (const [more, a] of [[3.6, 0.045], [2.5, 0.06], [1.5, 0.08], [0.7, 0.1]]) {
+      ctx.lineWidth = w + more;
+      ctx.strokeStyle = `rgba(0,0,0,${a})`;
+      stroke();
+    }
+    ctx.save();
+    ctx.translate(0, 0.9);
+    ctx.lineWidth = w + 1.8;
+    ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+    stroke();
+    ctx.restore();
+  };
+  /* the bead's light, for a feature `size` across with its middle at (x, y) */
+  const sheen = (x: number, y: number, size: number): CanvasGradient => {
+    const gx = x + 0.4 * size * beadX, gy = y + 0.46 * size * beadY;
+    const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, 0.72 * size);
+    if (pale) {
+      const fx = x - 0.4 * size * beadX, fy = y - 0.46 * size * beadY;
+      const f = ctx.createRadialGradient(fx, fy, 0, fx, fy, 0.9 * size);
+      f.addColorStop(0, 'rgba(0,0,0,0.2)');
+      f.addColorStop(0.6, 'rgba(0,0,0,0.05)');
+      f.addColorStop(1, 'rgba(0,0,0,0)');
+      return f;
+    }
+    g.addColorStop(0, 'rgba(255,255,255,0.2)');
+    g.addColorStop(0.55, 'rgba(255,255,255,0.06)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    return g;
+  };
+  for (const { x, y, x0, y0, cy, w } of inPile ? [] : shapes) {
+    at(x, y, () => {
+      const path = eyePath(x0, y0, cy);
+      if (bead) socket(() => ctx.stroke(path), w);
       ctx.strokeStyle = ink;
       ctx.lineWidth = w;
-      ctx.stroke(eyePath(x0, y0, cy));
+      ctx.stroke(path);
+      if (bead) {
+        ctx.strokeStyle = sheen(0, 0.75 * y0 + 0.25 * cy, w);
+        ctx.stroke(path);
+      }
     });
   }
 
@@ -662,8 +760,14 @@ function drawFace(ctx: CanvasRenderingContext2D, pose: Pose, cfg: DrawConfig): [
       yb: b(3.53 * kd, 17.3 * kw, (4 * r) / 3),
     };
     at(mx, b(12.5, 11.6, 15.5), () => {
+      const path = mouthPath(m);
+      if (bead) socket(() => ctx.stroke(path), 0);
       ctx.fillStyle = ink;
-      ctx.fill(mouthPath(m));
+      ctx.fill(path);
+      if (bead) {
+        ctx.fillStyle = sheen(0, 0.35 * (m.yt + m.yb), 2 * m.hw);
+        ctx.fill(path);
+      }
     });
   }
 

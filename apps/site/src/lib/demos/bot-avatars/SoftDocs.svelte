@@ -300,8 +300,9 @@
 		</li>
 		{#if family !== 'flat'}
 			<li>
-				Fabric and plastic build their material in the background on idle time. An avatar fades in
-				once its material is ready, and one far off screen does not build until it is scrolled near.
+				Fabric's fur is drawn by the GPU, with WebGL2 (and on the canvas alone where there is none);
+				plastic builds its material in the background on idle time. An avatar fades in once its
+				material is ready, and one far off screen does not build until it is scrolled near.
 			</li>
 		{/if}
 		<li>

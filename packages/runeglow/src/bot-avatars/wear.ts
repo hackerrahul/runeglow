@@ -13,6 +13,7 @@
 
 import type { BotAvatarGlasses, BotAvatarHat } from './types';
 import { rasterize, PAD, SPAN } from './plastic';
+import type { FabricPressed } from './fabric-gl';
 import { shade, parseColor } from './color';
 import {
   makeMesh,
@@ -1271,6 +1272,49 @@ export function drawGlasses(
 }
 
 /* ── the pass entry points ──────────────────────────────────────────── */
+
+/**
+ * Where the pile of a fabric body lies flat under what it wears: each
+ * thing's own seat on the body, from the same numbers it is drawn with
+ * below. `bodyZ` and `face` as for drawWearFront.
+ */
+export function wearPressed(path: Path2D, wear: Wear, bodyZ: (x: number, y: number) => number, face: { y: number; scale: number }): FabricPressed | null {
+  const m = marksFor(path);
+  if (!m) return null;
+  const W = m.right - m.left;
+  const out: FabricPressed = { hat: null, pads: [] };
+  /* a hat's seat: its middle, its radius there, and its tilt (see `tilt`);
+     a unit up from its own edge, so what is pressed stays under it */
+  const hat = (x: number, y: number, r: number, roll: number, lean: number) => {
+    out.hat = { x, y: y - 1, r, dx: Math.sin(roll) * Math.cos(lean), dz: -Math.sin(lean) };
+  };
+  switch (wear.hat) {
+    case 'beret':
+      hat(50 - 0.07 * W, Math.max(m.top + 0.22 * W, seat(m, 0.5) + 0.1 * W), 0.36 * W, -0.24, -0.2);
+      break;
+    case 'beanie':
+      hat(50, seat(m, 0.72) + 0.06 * W, 1.04 * (0.53 * Math.max(0.5 * W, m.topR - m.topL) + 0.08 * W), 0, -0.14);
+      break;
+    case 'party':
+      hat(50 + 0.06 * W, seat(m, 0.3) + 0.04 * W, 0.18 * W, 0.18, -0.12);
+      break;
+    case 'crown':
+      hat(50, seat(m, 0.42) + 0.05 * W, 0.44 * Math.max(0.45 * W, m.topR - m.topL) + 0.07 * W, 0.05, -0.22);
+      break;
+  }
+  if (wear.headphones) {
+    /* the cups on either side, and the band over the head between them */
+    const rc = 0.15 * W, yc = m.mid - 0.07 * W;
+    for (const s of [-1, 1] as const) out.pads.push({ c: [(s < 0 ? m.left : m.right) - s * 0.02 * W, yc, 0.01 * W], r: [0.55 * rc, 1.2 * rc, 1.1 * rc] });
+    out.pads.push({ c: [50, yc, 0.01 * W], r: [0.5 * W + 2, yc - m.top + 4, 0.034 * W + 0.6], to: yc });
+  }
+  if (wear.bowTie && out.pads.length < 3) {
+    const cyB = Math.max(face.y + 22 * face.scale, m.bottom - 0.15 * W);
+    const k = Math.min(W, 100) * Math.max(0.5, Math.min(1, Math.max(0, m.bottom - 3 - cyB) / 15));
+    out.pads.push({ c: [50, cyB, bodyZ(50, cyB)], r: [0.4 * k, 0.22 * k, 0.2 * k] });
+  }
+  return out.hat || out.pads.length ? out : null;
+}
 
 /** Behind the body: what of the headphones is behind its middle plane. */
 export function drawWearBehind(ctx: CanvasRenderingContext2D, path: Path2D, r: WearRig, wear: Wear) {

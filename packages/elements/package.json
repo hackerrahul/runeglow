@@ -1,6 +1,6 @@
 {
 	"name": "@runeglow/elements",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Runeglow as custom elements: animated bot avatars and robot heads for AI agents, as HTML tags that work in any framework or none.",
 	"keywords": [
 		"web-components",

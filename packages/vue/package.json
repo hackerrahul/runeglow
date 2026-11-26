@@ -1,6 +1,6 @@
 {
 	"name": "@runeglow/vue",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Runeglow for Vue: animated bot avatars and robot heads for AI agents, as Vue 3 components on the framework-free runeglow core.",
 	"keywords": [
 		"vue",

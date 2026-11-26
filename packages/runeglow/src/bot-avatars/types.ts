@@ -44,7 +44,7 @@ export type BotAvatarSquashEase = 'sharp' | 'pulse' | 'soft' | 'bouncy';
  * How the body is lit. `fabric` (default): a plush faux fur — a baked
  * pillow form under a studio light, fine strands combed down the form and
  * gathered into lit locks, the silhouette breaking into soft tufts with a
- * haze of hairs; the eyes turn into glossy beads. `plastic`: the same form
+ * haze of hairs; the eyes are dark beads set into the pile. `plastic`: the same form
  * as a real glossy material shaded per pixel — a hot spot and a sheen, a
  * Fresnel rim, a window reflection, saturated shadows. `crisp`: a lit rim with
  * a clean edge round the front, vector-style. `smooth`: no edge, a soft

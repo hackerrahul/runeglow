@@ -1,0 +1,61 @@
+# Publishes the packages to npm when a push to main carries a new version.
+#
+# To release: set the same new version in every packages/*/package.json and
+# push to main. A push that changes no version checks and builds, and
+# publishes nothing (see scripts/publish.mjs).
+#
+# No npm token is stored. Each package on npmjs.com names this workflow as a
+# trusted publisher (Settings -> Trusted publishing: user `hackerrahul`,
+# repository `runeglow`, workflow `publish.yml`, with `npm publish` allowed),
+# and npm takes the workflow's own identity. Renaming this file breaks that
+# until the packages are pointed at the new name.
+name: Publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'scripts/publish.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+
+# one release at a time, and none cut short half way through the packages
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # the identity npm trusts in place of a token
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # the version in package.json's `packageManager`
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          # a release is built from a clean install
+          package-manager-cache: false
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check
+        run: pnpm --filter "./packages/*" check
+
+      - name: Build
+        run: pnpm build:lib
+
+      - name: Publish what is new
+        run: node scripts/publish.mjs
